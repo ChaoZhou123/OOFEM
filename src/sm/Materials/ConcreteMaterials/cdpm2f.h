@@ -47,7 +47,14 @@
 ///@name Input fields for CDPM2F
 //@{
 #define _IFT_CDPM2F_Name "cdpm2f"
-#define _IFT_CDPM2F_lf "lf"
+#define _IFT_CDPM2F_Lf "lf"
+#define _IFT_CDPM2F_Vf "vf"
+#define _IFT_CDPM2F_Df "df"
+#define _IFT_CDPM2F_Tau0 "tau0"
+#define _IFT_CDPM2F_Beta "beta"
+#define _IFT_CDPM2F_f "f"
+#define _IFT_CDPM2F_Ef "ef"
+#define _IFT_CDPM2F_Sm "sm"
 //@}
 
 namespace oofem {
@@ -60,8 +67,7 @@ class CDPM2FStatus : public ConcreteDPM2Status
 public:
 
 
-protected:
-  
+protected: 
 public:
     /// Constructor
     CDPM2FStatus(GaussPoint *gp);
@@ -84,9 +90,27 @@ class CDPM2F : public ConcreteDPM2
 public:
 
 protected:
-  double lf;
-  
-public:
+  double lf=0.;
+  double vf=0.;
+  double df=0.;
+  double ef=0.;
+  double tau0=0.;
+  double beta=0.;
+  double f=0.;
+  double eta=0.;
+  double g=0.;
+  double s0=0.;
+  double omega=0.;
+  double k=0.;
+  double lamda=0.;
+  double delta_star=0.;
+  double c=0.;
+  double delta_cu=0.;
+  double sm=0.;
+ 
+    
+
+ public:
     /// Constructor
     CDPM2F(int n, Domain *d);
 
