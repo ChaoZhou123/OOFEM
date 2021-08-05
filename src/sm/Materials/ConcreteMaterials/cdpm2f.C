@@ -86,11 +86,53 @@ CDPM2F::initializeFrom(InputRecord &ir)
     Below is an example. The variable should be part of the class so that you can use it anywhere in the object.
    */
   
-  IR_GIVE_FIELD(ir, this->lf, _IFT_CDPM2F_lf);
-  printf("fibre length = %e\n", lf);
+    IR_GIVE_FIELD(ir, lf, _IFT_CDPM2F_Lf);
+    printf("fibre length = %e\n", lf);
+    
   
-}
+    IR_GIVE_FIELD(ir, vf, _IFT_CDPM2F_Vf);
+    printf("fibre volume fraction = %e\n", vf);
 
+    IR_GIVE_FIELD(ir, df, _IFT_CDPM2F_Df);
+    printf("fibre diameter = %e\n", df);
+
+     IR_GIVE_FIELD(ir, ef, _IFT_CDPM2F_Ef);
+    printf("fibre Young's modulus = %e\n", ef);
+
+    IR_GIVE_FIELD(ir, tau0, _IFT_CDPM2F_Tau0);
+    printf("initail bond strength = %e\n", tau0);
+
+    IR_GIVE_FIELD(ir, beta, _IFT_CDPM2F_Beta);
+    printf("slip hardening coefficient = %e\n", beta);
+
+    IR_GIVE_FIELD(ir, f, _IFT_CDPM2F_f);
+    printf("snubbing coefficient = %e\n", f);
+
+    IR_GIVE_FIELD(ir, sm, _IFT_CDPM2F_Sm);
+    printf("snubbing coefficient = %e\n", sm);
+
+    double em;
+    IR_GIVE_FIELD(ir, em, _IFT_IsotropicLinearElasticMaterial_e);
+
+    this->eta = this->ef * this->vf / (em * ( 1. - this->vf ) );
+
+    this->g = 2. * ( 1. + exp(M_PI * this->f / 2.) ) / ( 4. + this->f *this->f );
+
+    this->s0 = 1./2. * g * this->tau0 * this->vf * (1. + this->eta)* this->lf / this->df;
+      
+    this->omega = sqrt(4. *(1. + this->eta) * this->beta * this->tau0 / this->ef); 
+
+    this->k = this->omega * this->lf / (2. * this->df);  
+
+    this->lamda = cosh(this->k)-1.0;
+
+    this->delta_star = (2. * this->df) / beta * this->lamda;  
+
+    this-> c = this->beta * this->lf / (2. * this->df);
+
+    this-> delta_cu = 0.5 * this->lf * (this->c - 2.) / (3. * this->c);
+
+   }
 FloatArrayF< 6 >
 CDPM2F::giveRealStressVector_3d(const FloatArrayF< 6 > &fullStrainVector, GaussPoint *gp, TimeStep *tStep) const
 {
@@ -101,10 +143,62 @@ CDPM2F::giveRealStressVector_3d(const FloatArrayF< 6 > &fullStrainVector, GaussP
   //Peter: Add the bridging stress due to fibres
   FloatArrayF< 6 > stressFibres;
   
+  FloatArrayF< 6 > delta;
+  auto status = static_cast<CDPM2FStatus*>(this->giveStatus(gp));
+
+  double Le = status->giveLe();
+
+  double D = sm*delta_cu/(Le-sm);
+
+  
+    double e_cu = delta_cu/sm;
+
+    double e_star =  ((delta_star*delta_star)*(Le-sm)/(sm*delta_cu)+delta_star)/Le;
+
+    double e_ul = (0.5*lf-delta_cu)/Le+delta_cu/sm;
+  
+  
+auto tempStrain = status->giveTempReducedStrain();
+
+auto tempPlasticStrain = status->giveTempPlasticStrain();
+
+auto tempDamageTension = status->giveTempDamageTension();
+
+FloatArrayF< 6 > crackingStrain;
+
+ crackingStrain = tempPlasticStrain + tempDamageTension*(tempStrain-tempPlasticStrain);
+ double ps = norm(crackingStrain); 
+  if(ps <= e_cu&&ps > 0){
+  for (int i =0; i<3; i++){
+  delta[i] = sqrt(Le*crackingStrain[i]*D+D*D/2.)-D/2.;
+  }
+  }
+  else if(ps>e_cu&&ps<=e_ul){
+    for (int i =0; i<3; i++){
+      delta[i] = Le*(crackingStrain[i]-delta_cu/sm)+delta_cu;
+  }
+    
+
+  if (ps <= e_star&&ps > 0){
+    for (int i = 0; i<3; i++){
+      stressFibres[i] = 2./k*((1.-acosh(1.+lamda*delta[i]/delta_star)/k)*sqrt(pow((1.+lamda*delta[i]/delta_star),2.)-1.)+(lamda*delta[i])/(k*delta_star))*s0;
+  }
+  }
+    else if (ps > e_star&&ps<=e_ul){
+    for (int i = 0; i<3; i++){
+      stressFibres[i] = ((1.+beta*delta[i]/df)*(1.-pow(2.*delta[i]/lf,2.)))*s0;
+    }
+    }
+    else if (ps>e_ul&&ps<=0){
+      for (int i = 0; i<3; i++){
+      stressFibres[i] = 0;
+    }
+    }
+    
   FloatArrayF< 6 >  stress = stressConcrete+stressFibres;
   
   return stress;
-
+  }
 }
 
 MaterialStatus *
@@ -112,5 +206,4 @@ CDPM2F::CreateStatus(GaussPoint *gp) const
 {
     return new  CDPM2FStatus(gp);
 }
-  
 } //end of namespace
