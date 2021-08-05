@@ -132,15 +132,103 @@ CDPM2F::initializeFrom(InputRecord &ir)
 
     this-> delta_cu = 0.5 * this->lf * (this->c - 2.) / (3. * this->c);
 
-   }
-FloatArrayF< 6 >
-CDPM2F::giveRealStressVector_3d(const FloatArrayF< 6 > &fullStrainVector, GaussPoint *gp, TimeStep *tStep) const
-{
 
+
+
+  FloatArrayF< 6 >
+  CDPM2F::giveRealStressVector_3d(const FloatArrayF< 6 > &fullStrainVector, GaussPoint *gp, TimeStep *tStep) const
+
+{
+  //CDPM2F status
+  auto status = static_cast<CDPM2FStatus*>(this->giveStatus(gp));
+  
   //Call ConcreteDPM2 to compute the stress in CDPM2
   auto stressConcrete = ConcreteDPM2::giveRealStressVector_3d(fullStrainVector,gp,tStep);
-  
+
   //Peter: Add the bridging stress due to fibres
+  FloatArrayF< 6 > stressFibres;
+
+  //Peter: Calculate crackingStrain only when there is tensile damage.
+  //The definition of the cracking has also a component which is present when there is no damage during hardening plasticity. I would suggest to switch on the calculation of the fibre stress only when there is tensile damage and use the part of the cracking strain in the post-peak. In CDPM2, damage is calculated by history variables which are related to plastic and elastic strains. I looked it up in the paper once more. There is kappadt1 which is norm of the rate of plastic strain, but only for the post peak (damage has started). Also, kappadt2 is related to the equivalent strain which in uniaxial stress states is something like the elastic strain in axial direction. See (44) and (45) in CDPM2 article. The only issue is that there is a ductility measure, which is used to take into account multiaxial stresses. We do not really are interested in it. For uniaxial tension, the ductility measure should be one so o that is not a problem. The suggestion is then to calculate the fibre stress as a double first. Then, come up with a method to add it to the stress somehow.
+
+
+  auto tempDamageTension = status->giveTempDamageTension();
+  
+  if(tempDamageTension >0.){//Calculate the cracking strain and fibre stress only if there is tensile damage. This will fix problems with zero length. In CDPM2, the length is only calculated if there is damage.
+
+    auto tempKappaDOne = status->giveTempKappaDOne();
+    auto tempKappaDTwo = status->giveTempKappaDTwo();
+    
+    // FloatArrayF< 6 > crackingStrain;
+
+    //  auto tempStrain = status->giveTempReducedStrain();
+
+    //  auto tempPlasticStrain = status->giveTempPlasticStrain();
+ 
+    double ps =  tempKappaDOne + tempDamageTension*tempKappaDTwo;
+
+    //Peter: If possible, use variable names which tell reader what it is. 
+    //  double ps = norm(crackingStrain);
+
+    FloatArrayF< 6 > delta;
+    
+
+    double Le = status->giveLe();
+
+    double D = sm*delta_cu/(Le-sm);
+
+  
+    double e_cu = delta_cu/sm;
+
+    double e_star =  ((delta_star*delta_star)*(Le-sm)/(sm*delta_cu)+delta_star)/Le;
+
+    double e_ul = (0.5*lf-delta_cu)/Le+delta_cu/sm;
+  
+  
+ 
+    if(ps <= e_cu&&ps > 0){
+      //  for (int i =0; i<3; i++){
+    
+      //Peter: I replaced with ps. Only a double.
+      delta = sqrt(Le*ps*D+D*D/2.)-D/2.;
+      //  }
+    }
+    else if(ps>e_cu&&ps<=e_ul){
+      //    for (int i =0; i<3; i++){
+      //Peter: I replaced with ps. Only a double.
+      delta = Le*(ps-delta_cu/sm)+delta_cu;
+      //  }
+    
+    }
+
+    
+    if (ps <= e_star&&ps > 0){
+      // for (int i = 0; i<3; i++){
+      stressFibres = 2./k*((1.-acosh(1.+lamda*delta/delta_star)/k)*sqrt(pow((1.+lamda*delta/delta_star),2.)-1.)+(lamda*delta)/(k*delta_star))*s0;
+      //  }
+    }
+    else if (ps > e_star&&ps<=e_ul){
+      //    for (int i = 0; i<3; i++){
+      stressFibres = ((1.+beta*delta/df)*(1.-pow(2.*delta/lf,2.)))*s0;
+      //    }
+    }
+    //  else if (ps>e_ul&&ps<=0){ //This condition does not make sense? How can it be below or equal zero but at the same time larger than e_ul? Do you mean || for or?
+    else if (ps>e_ul&&ps<=0){
+      //    for (int i = 0; i<3; i++){
+      stressFibres = 0;
+      //    }
+    }
+  }
+
+  //Now add the stress fibres to to the concrete stress. However, you cannot do this to all the stresses because this would be wrong.
+
+
+  
+  FloatArrayF< 6 >  stress = stressConcrete+stressFibres;
+
+  //Chao's original part
+
+    //Peter: Add the bridging stress due to fibres
   FloatArrayF< 6 > stressFibres;
   
   FloatArrayF< 6 > delta;
@@ -158,6 +246,22 @@ CDPM2F::giveRealStressVector_3d(const FloatArrayF< 6 > &fullStrainVector, GaussP
     double e_ul = (0.5*lf-delta_cu)/Le+delta_cu/sm;
   
   
+
+  FloatArrayF< 6 > delta;
+  auto status = static_cast<CDPM2FStatus*>(this->giveStatus(gp));
+
+  double Le = status->giveLe();
+
+  double D = sm*delta_cu/(Le-sm);
+
+  
+    double e_cu = delta_cu/sm;
+
+    double e_star =  ((delta_star*delta_star)*(Le-sm)/(sm*delta_cu)+delta_star)/Le;
+
+    double e_ul = (0.5*lf-delta_cu)/Le+delta_cu/sm;
+  
+
 auto tempStrain = status->giveTempReducedStrain();
 
 auto tempPlasticStrain = status->giveTempPlasticStrain();
@@ -199,6 +303,7 @@ FloatArrayF< 6 > crackingStrain;
   
   return stress;
   }
+
 }
 
 MaterialStatus *
