@@ -80,62 +80,60 @@ void
 CDPM2F::initializeFrom(InputRecord &ir)
 {
     // call the corresponding service for the linear elastic material
-  ConcreteDPM2::initializeFrom(ir);
+    ConcreteDPM2::initializeFrom( ir );
 
-  /*Peter: Chao, you need to add here calls to the input macro to read in the input parameters for the fibre model.
-    Below is an example. The variable should be part of the class so that you can use it anywhere in the object.
-   */
-  
-    IR_GIVE_FIELD(ir, lf, _IFT_CDPM2F_Lf);
-    printf("fibre length = %e\n", lf);
-    
-  
-    IR_GIVE_FIELD(ir, vf, _IFT_CDPM2F_Vf);
-    printf("fibre volume fraction = %e\n", vf);
+    /*Peter: Chao, you need to add here calls to the input macro to read in the input parameters for the fibre model.
+      Below is an example. The variable should be part of the class so that you can use it anywhere in the object.
+     */
 
-    IR_GIVE_FIELD(ir, df, _IFT_CDPM2F_Df);
-    printf("fibre diameter = %e\n", df);
+    IR_GIVE_FIELD( ir, lf, _IFT_CDPM2F_Lf );
+    printf( "fibre length = %e\n", lf );
 
-     IR_GIVE_FIELD(ir, ef, _IFT_CDPM2F_Ef);
-    printf("fibre Young's modulus = %e\n", ef);
 
-    IR_GIVE_FIELD(ir, tau0, _IFT_CDPM2F_Tau0);
-    printf("initail bond strength = %e\n", tau0);
+    IR_GIVE_FIELD( ir, vf, _IFT_CDPM2F_Vf );
+    printf( "fibre volume fraction = %e\n", vf );
 
-    IR_GIVE_FIELD(ir, beta, _IFT_CDPM2F_Beta);
-    printf("slip hardening coefficient = %e\n", beta);
+    IR_GIVE_FIELD( ir, df, _IFT_CDPM2F_Df );
+    printf( "fibre diameter = %e\n", df );
 
-    IR_GIVE_FIELD(ir, f, _IFT_CDPM2F_f);
-    printf("snubbing coefficient = %e\n", f);
+    IR_GIVE_FIELD( ir, ef, _IFT_CDPM2F_Ef );
+    printf( "fibre Young's modulus = %e\n", ef );
 
-    IR_GIVE_FIELD(ir, sm, _IFT_CDPM2F_Sm);
-    printf("snubbing coefficient = %e\n", sm);
+    IR_GIVE_FIELD( ir, tau0, _IFT_CDPM2F_Tau0 );
+    printf( "initail bond strength = %e\n", tau0 );
+
+    IR_GIVE_FIELD( ir, beta, _IFT_CDPM2F_Beta );
+    printf( "slip hardening coefficient = %e\n", beta );
+
+    IR_GIVE_FIELD( ir, f, _IFT_CDPM2F_f );
+    printf( "snubbing coefficient = %e\n", f );
+
+    IR_GIVE_FIELD( ir, sm, _IFT_CDPM2F_Sm );
+    printf( "snubbing coefficient = %e\n", sm );
 
     double em;
-    IR_GIVE_FIELD(ir, em, _IFT_IsotropicLinearElasticMaterial_e);
+    IR_GIVE_FIELD( ir, em, _IFT_IsotropicLinearElasticMaterial_e );
 
-    this->eta = this->ef * this->vf / (em * ( 1. - this->vf ) );
+    this->eta = this->ef * this->vf / ( em * ( 1. - this->vf ) );
 
-    this->g = 2. * ( 1. + exp(M_PI * this->f / 2.) ) / ( 4. + this->f *this->f );
+    this->g = 2. * ( 1. + exp( M_PI * this->f / 2. ) ) / ( 4. + this->f * this->f );
 
-    this->s0 = 1./2. * g * this->tau0 * this->vf * (1. + this->eta)* this->lf / this->df;
-      
-    this->omega = sqrt(4. *(1. + this->eta) * this->beta * this->tau0 / this->ef); 
+    this->s0 = 1. / 2. * g * this->tau0 * this->vf * ( 1. + this->eta ) * this->lf / this->df;
 
-    this->k = this->omega * this->lf / (2. * this->df);  
+    this->omega = sqrt( 4. * ( 1. + this->eta ) * this->beta * this->tau0 / this->ef );
 
-    this->lamda = cosh(this->k)-1.0;
+    this->k = this->omega * this->lf / ( 2. * this->df );
 
-    this->delta_star = (2. * this->df) / beta * this->lamda;  
+    this->lamda = cosh( this->k ) - 1.0;
 
-    this-> c = this->beta * this->lf / (2. * this->df);
+    this->delta_star = ( 2. * this->df ) / beta * this->lamda;
 
-    this-> delta_cu = 0.5 * this->lf * (this->c - 2.) / (3. * this->c);
+    this->c = this->beta * this->lf / ( 2. * this->df );
 
+    this->delta_cu = 0.5 * this->lf * ( this->c - 2. ) / ( 3. * this->c );
+}
 
-
-
-  FloatArrayF< 6 >
+FloatArrayF< 6 >
   CDPM2F::giveRealStressVector_3d(const FloatArrayF< 6 > &fullStrainVector, GaussPoint *gp, TimeStep *tStep) const
 
 {
@@ -146,33 +144,36 @@ CDPM2F::initializeFrom(InputRecord &ir)
   auto stressConcrete = ConcreteDPM2::giveRealStressVector_3d(fullStrainVector,gp,tStep);
 
   //Peter: Add the bridging stress due to fibres
-  FloatArrayF< 6 > stressFibres;
-
-  //Peter: Calculate crackingStrain only when there is tensile damage.
-  //The definition of the cracking has also a component which is present when there is no damage during hardening plasticity. I would suggest to switch on the calculation of the fibre stress only when there is tensile damage and use the part of the cracking strain in the post-peak. In CDPM2, damage is calculated by history variables which are related to plastic and elastic strains. I looked it up in the paper once more. There is kappadt1 which is norm of the rate of plastic strain, but only for the post peak (damage has started). Also, kappadt2 is related to the equivalent strain which in uniaxial stress states is something like the elastic strain in axial direction. See (44) and (45) in CDPM2 article. The only issue is that there is a ductility measure, which is used to take into account multiaxial stresses. We do not really are interested in it. For uniaxial tension, the ductility measure should be one so o that is not a problem. The suggestion is then to calculate the fibre stress as a double first. Then, come up with a method to add it to the stress somehow.
-
 
   auto tempDamageTension = status->giveTempDamageTension();
+
+
+  FloatArrayF< 6 > stressFibres;
+
   
   if(tempDamageTension >0.){//Calculate the cracking strain and fibre stress only if there is tensile damage. This will fix problems with zero length. In CDPM2, the length is only calculated if there is damage.
 
-    auto tempKappaDOne = status->giveTempKappaDOne();
-    auto tempKappaDTwo = status->giveTempKappaDTwo();
-    
-    // FloatArrayF< 6 > crackingStrain;
+    //auto tempKappaDOne = status->giveTempKappaDOne();
+    //auto tempKappaDTwo = status->giveTempKappaDTwo();
 
-    //  auto tempStrain = status->giveTempReducedStrain();
+    auto tempStrain = status->giveTempReducedStrain();
 
-    //  auto tempPlasticStrain = status->giveTempPlasticStrain();
- 
-    double ps =  tempKappaDOne + tempDamageTension*tempKappaDTwo;
+    auto tempPlasticStrain = status->giveTempPlasticStrain();
 
-    //Peter: If possible, use variable names which tell reader what it is. 
+    FloatArrayF< 6 > crackingStrain;
+    crackingStrain = tempPlasticStrain + tempDamageTension*(tempStrain-tempPlasticStrain);
+
+    //Calculate principal values of cracking strain
+    //Determine the principal values of the strain
+    auto tmp = computePrincipalValDir( from_voigt_strain(crackingStrain) );  ///@todo CHECK
+    auto principalCrackingStrain = tmp.first;
+    auto strainPrincipalDir = tmp.second;
+
+    //Peter: Why do you calculate the norm of the cracking strain. This would give you a positive value even if the cracking strain is negative. Better to do it component by component?  
     //  double ps = norm(crackingStrain);
 
-    FloatArrayF< 6 > delta;
+    FloatArrayF< 3 > delta;
     
-
     double Le = status->giveLe();
 
     double D = sm*delta_cu/(Le-sm);
@@ -185,125 +186,32 @@ CDPM2F::initializeFrom(InputRecord &ir)
     double e_ul = (0.5*lf-delta_cu)/Le+delta_cu/sm;
   
   
- 
-    if(ps <= e_cu&&ps > 0){
-      //  for (int i =0; i<3; i++){
-    
-      //Peter: I replaced with ps. Only a double.
-      delta = sqrt(Le*ps*D+D*D/2.)-D/2.;
-      //  }
-    }
-    else if(ps>e_cu&&ps<=e_ul){
-      //    for (int i =0; i<3; i++){
-      //Peter: I replaced with ps. Only a double.
-      delta = Le*(ps-delta_cu/sm)+delta_cu;
-      //  }
-    
+    for (int i =1; i<=3; i++){ 
+      if( principalCrackingStrain.at(i) > 0 && principalCrackingStrain.at(i) <= e_cu ){
+	delta.at(i) = sqrt(Le*principalCrackingStrain.at(i)*D+D*D/2.)-D/2.;
+      }
+      else if( principalCrackingStrain.at(i) > e_cu && principalCrackingStrain.at(i) <= e_ul ){
+	delta.at(i) = Le*(principalCrackingStrain.at(i)-delta_cu/sm)+delta_cu;
+      }
     }
 
+  FloatArrayF<6> principalStressFibres; //Only use first 3 components, but need to have 6 to be able to convert it later
     
-    if (ps <= e_star&&ps > 0){
-      // for (int i = 0; i<3; i++){
-      stressFibres = 2./k*((1.-acosh(1.+lamda*delta/delta_star)/k)*sqrt(pow((1.+lamda*delta/delta_star),2.)-1.)+(lamda*delta)/(k*delta_star))*s0;
-      //  }
+    for (int i = 1; i<=3; i++){
+        if ( principalCrackingStrain.at( i ) > 0 && principalCrackingStrain.at( i ) <= e_star )
+            principalStressFibres.at( i ) = 2. / k * ( ( 1. - acosh( 1. + lamda * delta.at( i ) / delta_star ) / k ) * sqrt( pow( ( 1. + lamda * delta.at( i ) / delta_star ), 2. ) - 1. ) + ( lamda * delta.at( i ) ) / ( k * delta_star ) ) * s0;
+        else if ( principalCrackingStrain.at( i ) > e_star && principalCrackingStrain.at( i ) <= e_ul )
+            principalStressFibres.at( i ) = ( ( 1. + beta * delta.at( i ) / df ) * ( 1. - pow( 2. * delta.at( i ) / lf, 2. ) ) ) * s0;
+        else if ( principalCrackingStrain.at( i ) > e_ul || principalCrackingStrain.at( i ) <= 0 )
+            principalStressFibres.at( i ) = 0;
     }
-    else if (ps > e_star&&ps<=e_ul){
-      //    for (int i = 0; i<3; i++){
-      stressFibres = ((1.+beta*delta/df)*(1.-pow(2.*delta/lf,2.)))*s0;
-      //    }
-    }
-    //  else if (ps>e_ul&&ps<=0){ //This condition does not make sense? How can it be below or equal zero but at the same time larger than e_ul? Do you mean || for or?
-    else if (ps>e_ul&&ps<=0){
-      //    for (int i = 0; i<3; i++){
-      stressFibres = 0;
-      //    }
-    }
+
+    stressFibres = transformStressVectorTo(strainPrincipalDir, principalStressFibres, 1);    
+
   }
-
-  //Now add the stress fibres to to the concrete stress. However, you cannot do this to all the stresses because this would be wrong.
-
-
   
   FloatArrayF< 6 >  stress = stressConcrete+stressFibres;
-
-  //Chao's original part
-
-    //Peter: Add the bridging stress due to fibres
-  FloatArrayF< 6 > stressFibres;
   
-  FloatArrayF< 6 > delta;
-  auto status = static_cast<CDPM2FStatus*>(this->giveStatus(gp));
-
-  double Le = status->giveLe();
-
-  double D = sm*delta_cu/(Le-sm);
-
-  
-    double e_cu = delta_cu/sm;
-
-    double e_star =  ((delta_star*delta_star)*(Le-sm)/(sm*delta_cu)+delta_star)/Le;
-
-    double e_ul = (0.5*lf-delta_cu)/Le+delta_cu/sm;
-  
-  
-
-  FloatArrayF< 6 > delta;
-  auto status = static_cast<CDPM2FStatus*>(this->giveStatus(gp));
-
-  double Le = status->giveLe();
-
-  double D = sm*delta_cu/(Le-sm);
-
-  
-    double e_cu = delta_cu/sm;
-
-    double e_star =  ((delta_star*delta_star)*(Le-sm)/(sm*delta_cu)+delta_star)/Le;
-
-    double e_ul = (0.5*lf-delta_cu)/Le+delta_cu/sm;
-  
-
-auto tempStrain = status->giveTempReducedStrain();
-
-auto tempPlasticStrain = status->giveTempPlasticStrain();
-
-auto tempDamageTension = status->giveTempDamageTension();
-
-FloatArrayF< 6 > crackingStrain;
-
- crackingStrain = tempPlasticStrain + tempDamageTension*(tempStrain-tempPlasticStrain);
- double ps = norm(crackingStrain); 
-  if(ps <= e_cu&&ps > 0){
-  for (int i =0; i<3; i++){
-  delta[i] = sqrt(Le*crackingStrain[i]*D+D*D/2.)-D/2.;
-  }
-  }
-  else if(ps>e_cu&&ps<=e_ul){
-    for (int i =0; i<3; i++){
-      delta[i] = Le*(crackingStrain[i]-delta_cu/sm)+delta_cu;
-  }
-    
-
-  if (ps <= e_star&&ps > 0){
-    for (int i = 0; i<3; i++){
-      stressFibres[i] = 2./k*((1.-acosh(1.+lamda*delta[i]/delta_star)/k)*sqrt(pow((1.+lamda*delta[i]/delta_star),2.)-1.)+(lamda*delta[i])/(k*delta_star))*s0;
-  }
-  }
-    else if (ps > e_star&&ps<=e_ul){
-    for (int i = 0; i<3; i++){
-      stressFibres[i] = ((1.+beta*delta[i]/df)*(1.-pow(2.*delta[i]/lf,2.)))*s0;
-    }
-    }
-    else if (ps>e_ul&&ps<=0){
-      for (int i = 0; i<3; i++){
-      stressFibres[i] = 0;
-    }
-    }
-    
-  FloatArrayF< 6 >  stress = stressConcrete+stressFibres;
-  
-  return stress;
-  }
-
 }
 
 MaterialStatus *
