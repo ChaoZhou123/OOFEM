@@ -143,6 +143,8 @@ FloatArrayF< 6 >
   //Call ConcreteDPM2 to compute the stress in CDPM2
   auto stressConcrete = ConcreteDPM2::giveRealStressVector_3d(fullStrainVector,gp,tStep);
 
+  auto tempStateFlag = status->giveTempStateFlag();
+
   //Peter: Add the bridging stress due to fibres
 
   auto tempDamageTension = status->giveTempDamageTension();
@@ -151,8 +153,7 @@ FloatArrayF< 6 >
   FloatArrayF< 6 > stressFibres;
 
   
-  if(tempDamageTension >0.){//Calculate the cracking strain and fibre stress only if there is tensile damage. This will fix problems with zero length. In CDPM2, the length is only calculated if there is damage.
-
+  if(tempDamageTension >0. && (tempStateFlag == CDPM2FStatus::ConcreteDPM2_Damage || tempStateFlag == CDPM2FStatus::ConcreteDPM2_PlasticDamage)){//Calculate the cracking strain and fibre stress only if there is tensile damage. This will fix problems with zero length. In CDPM2, the length is only calculated if there is damage.
     //auto tempKappaDOne = status->giveTempKappaDOne();
     //auto tempKappaDTwo = status->giveTempKappaDTwo();
 
@@ -208,6 +209,9 @@ FloatArrayF< 6 >
 
     stressFibres = transformStressVectorTo(strainPrincipalDir, principalStressFibres, 1);    
 
+  }
+  else{
+      printf("Should set fibre stress to zero\n");
   }
   
   FloatArrayF< 6 >  stress = stressConcrete+stressFibres;
