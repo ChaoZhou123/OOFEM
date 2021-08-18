@@ -82,13 +82,8 @@ CDPM2F::initializeFrom(InputRecord &ir)
     // call the corresponding service for the linear elastic material
     ConcreteDPM2::initializeFrom( ir );
 
-    /*Peter: Chao, you need to add here calls to the input macro to read in the input parameters for the fibre model.
-      Below is an example. The variable should be part of the class so that you can use it anywhere in the object.
-     */
-
     IR_GIVE_FIELD( ir, lf, _IFT_CDPM2F_Lf );
     printf( "fibre length = %e\n", lf );
-
 
     IR_GIVE_FIELD( ir, vf, _IFT_CDPM2F_Vf );
     printf( "fibre volume fraction = %e\n", vf );
@@ -143,15 +138,13 @@ FloatArrayF< 6 >
   //Call ConcreteDPM2 to compute the stress in CDPM2
   auto stressConcrete = ConcreteDPM2::giveRealStressVector_3d(fullStrainVector,gp,tStep);
 
-  //Peter: Add the bridging stress due to fibres
-
   auto tempDamageTension = status->giveTempDamageTension();
-
 
   FloatArrayF< 6 > stressFibres;
 
+  auto tempStateFlag = status->giveTempStateFlag();
   
-  if(tempDamageTension >0.){//Calculate the cracking strain and fibre stress only if there is tensile damage. This will fix problems with zero length. In CDPM2, the length is only calculated if there is damage.
+  if(tempDamageTension >0. && (tempStateFlag == CDPM2FStatus::ConcreteDPM2_Damage || tempStateFlag == CDPM2FStatus::ConcreteDPM2_PlasticDamage)){//Calculate the cracking strain and fibre stress only if there is tensile damage. This will fix problems with zero length. In CDPM2, the length is only calculated if there is damage.
 
     //auto tempKappaDOne = status->giveTempKappaDOne();
     //auto tempKappaDTwo = status->giveTempKappaDTwo();
@@ -199,19 +192,21 @@ FloatArrayF< 6 >
     
     for (int i = 1; i<=3; i++){
         if ( principalCrackingStrain.at( i ) > 0 && principalCrackingStrain.at( i ) <= e_star )
-	  principalStressFibres.at( i ) =( 2. / k * ( ( 1. - acosh( 1. + lamda * delta.at( i ) / delta_star ) / k ) * sqrt( pow( ( 1. + lamda * delta.at( i ) / delta_star ), 2. ) - 1. ) + ( lamda * delta.at( i ) ) / ( k * delta_star ) ) * s0)*1000000.0;
+	  principalStressFibres.at( i ) =( 2. / k * ( ( 1. - acosh( 1. + lamda * delta.at( i ) / delta_star ) / k ) * sqrt( pow( ( 1. + lamda * delta.at( i ) / delta_star ), 2. ) - 1. ) + ( lamda * delta.at( i ) ) / ( k * delta_star ) ) * s0);
         else if ( principalCrackingStrain.at( i ) > e_star && principalCrackingStrain.at( i ) <= e_ul )
-	  principalStressFibres.at( i ) = (( ( 1. + beta * delta.at( i ) / df ) * ( 1. - pow( 2. * delta.at( i ) / lf, 2. ) ) ) * s0)*1000000.0;
+	  principalStressFibres.at( i ) = (( ( 1. + beta * delta.at( i ) / df ) * ( 1. - pow( 2. * delta.at( i ) / lf, 2. ) ) ) * s0);
         else if ( principalCrackingStrain.at( i ) > e_ul || principalCrackingStrain.at( i ) <= 0 )
             principalStressFibres.at( i ) = 0;
     }
 
     stressFibres = transformStressVectorTo(strainPrincipalDir, principalStressFibres, 1);    
 
+
   }
   
   FloatArrayF< 6 >  stress = stressConcrete+stressFibres;
-  
+  status->letTempStrainVectorBe(fullStrainVector);
+  status->letTempStressVectorBe(stress);
 }
 
 MaterialStatus *
