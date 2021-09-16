@@ -67,14 +67,25 @@ class CDPM2FStatus : public ConcreteDPM2Status
 public:
 
 
-protected: 
+protected:
+  
+  FloatArrayF< 6 >stressConcrete;
+  FloatArrayF< 6 >tempStressConcrete;
+
+  FloatArrayF< 6 >stressFibres;
+  FloatArrayF< 6 >tempStressFibres;
 public:
     /// Constructor
     CDPM2FStatus(GaussPoint *gp);
-
+    void initTempStatus() override;
+    void updateYourself(TimeStep *tstep) override;
     const char *giveClassName() const override { return "CDPM2FStatus"; }
+    const FloatArrayF< 6 > &giveStressConcrete() const { return stressConcrete; }
+    const FloatArrayF< 6 > &giveTempStressConcrete() const { return tempStressConcrete; }
+    const FloatArrayF< 6 > &giveStressFibres() const { return stressFibres; }
+    const FloatArrayF< 6 > &giveTempStressFibres() const { return tempStressFibres; }
+}; 
 
-};
 
 //   ********************************
 //   *** CLASS CONCRETEDPM2   ***
@@ -90,6 +101,9 @@ class CDPM2F : public ConcreteDPM2
 public:
 
 protected:
+ 
+
+
   double lf=0.;
   double vf=0.;
   double df=0.;

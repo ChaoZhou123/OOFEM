@@ -57,6 +57,23 @@ CDPM2FStatus::CDPM2FStatus(GaussPoint *gp) :
 
 }
 
+void
+CDPM2FStatus::initTempStatus()
+{
+  ConcreteDPM2Status::initTempStatus();
+
+  tempStressConcrete = stressConcrete;
+  tempStressFibres = stressFibres;
+}
+
+void
+CDPM2FStatus::updateYourself(TimeStep *tStep)
+{
+  ConcreteDPM2Status::updateYourself(tStep);
+
+  stressConcrete = tempStressConcrete;
+  stressFibres = tempStressFibres;
+}  
 //   ********************************
 //   *** CLASS CDPM2F ***
 //   ********************************
@@ -126,6 +143,7 @@ CDPM2F::initializeFrom(InputRecord &ir)
     this->c = this->beta * this->lf / ( 2. * this->df );
 
     this->delta_cu = 0.5 * this->lf * ( this->c - 2. ) / ( 3. * this->c );
+    printf( "delta_cu = %e\n", delta_cu );
 }
 
 FloatArrayF< 6 >
@@ -207,6 +225,8 @@ FloatArrayF< 6 >
   FloatArrayF< 6 >  stress = stressConcrete+stressFibres;
   status->letTempStrainVectorBe(fullStrainVector);
   status->letTempStressVectorBe(stress);
+
+  return stress;
 }
 
 MaterialStatus *
@@ -214,4 +234,10 @@ CDPM2F::CreateStatus(GaussPoint *gp) const
 {
     return new  CDPM2FStatus(gp);
 }
+
+
+
+
+
+  
 } //end of namespace
