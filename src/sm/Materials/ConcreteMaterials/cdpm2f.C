@@ -75,6 +75,13 @@ CDPM2F::hasMaterialModeCapability(MaterialMode mode) const
     return mode == _3dMat;
 }
 
+FloatMatrixF< 6, 6 >
+CDPM2F::give3dMaterialStiffnessMatrix(MatResponseMode mode,
+                                            GaussPoint *gp,
+                                            TimeStep *tStep) const
+{
+  return this->linearElasticMaterial.give3dMaterialStiffnessMatrix(mode, gp, tStep);
+}
 
 void
 CDPM2F::initializeFrom(InputRecord &ir)
@@ -143,8 +150,11 @@ FloatArrayF< 6 >
   FloatArrayF< 6 > stressFibres;
 
   auto tempStateFlag = status->giveTempStateFlag();
-  
-  if(tempDamageTension >0. && (tempStateFlag == CDPM2FStatus::ConcreteDPM2_Damage || tempStateFlag == CDPM2FStatus::ConcreteDPM2_PlasticDamage)){//Calculate the cracking strain and fibre stress only if there is tensile damage. This will fix problems with zero length. In CDPM2, the length is only calculated if there is damage.
+
+  if (tempStateFlag == CDPM2FStatus::ConcreteDPM2_Elastic || tempStateFlag == CDPM2FStatus::ConcreteDPM2_Plastic){
+    printf("No crack yet. Fibres should not be active\n");
+  }
+  else if(tempDamageTension >0. && (tempStateFlag == CDPM2FStatus::ConcreteDPM2_Damage || tempStateFlag == CDPM2FStatus::ConcreteDPM2_PlasticDamage)){//Calculate the cracking strain and fibre stress only if there is tensile damage. This will fix problems with zero length. In CDPM2, the length is only calculated if there is damage.
 
     //auto tempKappaDOne = status->giveTempKappaDOne();
     //auto tempKappaDTwo = status->giveTempKappaDTwo();
@@ -201,12 +211,16 @@ FloatArrayF< 6 >
 
     stressFibres = transformStressVectorTo(strainPrincipalDir, principalStressFibres, 1);    
 
-
+    
+  }//end of loading
+  else{
+    printf("Here we need to implement the unloading. For this we need to have a measure of irreversible and reversible displacements.\n");
   }
   
   FloatArrayF< 6 >  stress = stressConcrete+stressFibres;
   status->letTempStrainVectorBe(fullStrainVector);
   status->letTempStressVectorBe(stress);
+  return stress;
 }
 
 MaterialStatus *

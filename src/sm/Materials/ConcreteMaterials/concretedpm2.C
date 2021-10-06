@@ -951,7 +951,7 @@ ConcreteDPM2::giveRealStressVector_3d(const FloatArrayF< 6 > &fullStrainVector, 
     double gf = pow(ft, 2) / this->eM; //rough estimation only for this purpose
     status->computeWork(gp, gf);
 #endif
-    assignStateFlag(gp);
+    assignStateFlag(gp,tStep);
     return stress;
 }
 
@@ -2787,7 +2787,7 @@ ConcreteDPM2::compute3dSecantStiffness(GaussPoint *gp, TimeStep *tStep) const
     auto status = static_cast< ConcreteDPM2Status * >( giveStatus(gp) );
 
     //  Damage parameters
-    double omegaTension = min(status->giveTempDamageTension(), 0.999999);
+    double omegaTension = min(status->giveTempDamageTension(), 0.9999);
 
     auto d = this->linearElasticMaterial.give3dMaterialStiffnessMatrix(ElasticStiffness, gp, tStep);
 
@@ -2843,11 +2843,13 @@ ConcreteDPM2::computeCoordinates(const FloatArrayF< 6 > &stress, double &sigNew,
 
 
 void
-ConcreteDPM2::assignStateFlag(GaussPoint *gp) const
+ConcreteDPM2::assignStateFlag(GaussPoint *gp, TimeStep *tStep) const
 {
     auto status = static_cast< ConcreteDPM2Status * >( this->giveStatus(gp) );
 
     //Get kappaD from status to define state later on
+    double kappaDTension = status->giveKappaDTension();
+    double tempKappaDTension = status->giveTempKappaDTension();
     double damageTension = status->giveDamageTension();
     double damageCompression = status->giveDamageCompression();
     double tempDamageTension = status->giveTempDamageTension();
@@ -2855,17 +2857,19 @@ ConcreteDPM2::assignStateFlag(GaussPoint *gp) const
     double kappaP = status->giveKappaP();
     double tempKappaP = status->giveTempKappaP();
 
+    //    int number = tStep->giveNumber();
+    //    printf("number = %d, kappaP = %e, tempKappaP = %e, kappaDTension = %e, tempLappaDTension = %e, damageTension = %e, tempDamageTension = %e\n", number, kappaP, tempKappaP, kappaDTension, tempKappaDTension, damageTension, tempDamageTension);
+    
+
     if ( tempKappaP > kappaP ) {
-        if ( tempDamageTension > damageTension ||  tempDamageTension == 1. ||
-             tempDamageCompression > damageCompression || tempDamageCompression == 1. ) {
+        if ( tempKappaDTension > kappaDTension && (tempDamageTension > 0. || tempDamageCompression > 0.) ) {
             status->letTempStateFlagBe(ConcreteDPM2Status::ConcreteDPM2_PlasticDamage);
         } else {
             status->letTempStateFlagBe(ConcreteDPM2Status::ConcreteDPM2_Plastic);
         }
     } else {
         const int state_flag = status->giveStateFlag();
-        if ( tempDamageTension > damageTension || tempDamageTension == 1. ||
-             tempDamageCompression > damageCompression || tempDamageCompression == 1. ) {
+        if ( tempKappaDTension > kappaDTension && (tempDamageTension > 0. || tempDamageCompression > 0.) ) {
             status->letTempStateFlagBe(ConcreteDPM2Status::ConcreteDPM2_Damage);
         } else {
             if ( state_flag == ConcreteDPM2Status::ConcreteDPM2_Elastic ) {
