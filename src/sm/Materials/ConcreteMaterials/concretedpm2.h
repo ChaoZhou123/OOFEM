@@ -391,13 +391,22 @@ public:
     { return tempKappaP; }
 
     /**
-     * Get the temp value of the hardening variable of the damage model
+     * Get the temp value of the history variable of the damage model
      * from the material status.
      * @return Temp value of the damage variable damage.
      */
     double giveKappaDTension() const
     { return kappaDTension; }
 
+    /**
+     * Get the temp value of the temp history variable of the damage model
+     * from the material status.
+     * @return Temp value of the damage variable damage.
+     */
+    double giveTempKappaDTension() const
+    { return tempKappaDTension; }
+
+    
     double giveAlpha() const
     { return alpha; }
 
@@ -1081,7 +1090,7 @@ public:
 
 
     /// Assign state flag.
-    void assignStateFlag(GaussPoint *gp) const;
+    void assignStateFlag(GaussPoint *gp, TimeStep *tStep) const;
 
     /// Computes the derivative of rho with respect to the stress.
     FloatArrayF< 6 >computeDRhoDStress(const FloatArrayF< 6 > &stress) const;
