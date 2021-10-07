@@ -221,7 +221,7 @@ FloatArrayF< 6 >
 
 
   }
-  
+
   FloatArrayF< 6 >  stress = stressConcrete+stressFibres;
   status->letTempStrainVectorBe(fullStrainVector);
   status->letTempStressVectorBe(stress);
