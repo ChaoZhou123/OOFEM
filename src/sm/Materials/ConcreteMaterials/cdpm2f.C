@@ -64,6 +64,10 @@ CDPM2FStatus::initTempStatus()
 
   tempStressConcrete = stressConcrete;
   tempStressFibres = stressFibres;
+  tempNum = Num;
+  tempPrincipalCrackingStrain = principalCrackingStrain;
+  tempPrincipalStressFibres = principalStressFibres;
+
 }
 
 void
@@ -73,7 +77,44 @@ CDPM2FStatus::updateYourself(TimeStep *tStep)
 
   stressConcrete = tempStressConcrete;
   stressFibres = tempStressFibres;
-}  
+  Num = tempNum;
+  principalCrackingStrain = tempPrincipalCrackingStrain;
+  principalStressFibres = tempPrincipalStressFibres;
+}
+
+void
+CDPM2FStatus::printOutputAt( FILE *file, TimeStep *tStep ) const
+{
+    ConcreteDPM2Status::printOutputAt(file, tStep);
+    fprintf(file, "\tf_status {");
+
+    fprintf(file, "stressFibres");
+    for ( auto &val : stressFibres ) {
+        fprintf( file, " %.10e\n", val );
+    }
+
+    fprintf(file, "stressConcrete");
+    for ( auto &val : stressConcrete ) {
+        fprintf( file, " %.10e\n", val );
+    }
+
+    fprintf(file, "number_of_cracks");
+    for ( auto &val : Num ) {
+        fprintf( file, " %.10e\n", val );
+    }
+
+    fprintf(file, "principal_cracking_strain");
+    for ( auto &val : principalCrackingStrain ) {
+        fprintf( file, " %.10e\n", val );
+    }
+
+    fprintf(file, "principal_fibre_stress");
+    for ( auto &val : principalStressFibres ) {
+        fprintf( file, " %.10e\n", val );
+    }
+
+    fprintf(file, "}\n");
+}
 //   ********************************
 //   *** CLASS CDPM2F ***
 //   ********************************
@@ -189,11 +230,14 @@ FloatArrayF< 6 >
     auto tmp = computePrincipalValDir( from_voigt_strain(crackingStrain) );  ///@todo CHECK
     auto principalCrackingStrain = tmp.first;
     auto strainPrincipalDir = tmp.second;
+    //Here I tried to record the principal cracking strain to status.
+    status->letTempPrincipalCrackingStrainBe(principalCrackingStrain);
 
     //Peter: Why do you calculate the norm of the cracking strain. This would give you a positive value even if the cracking strain is negative. Better to do it component by component?  
     //  double ps = norm(crackingStrain);
 
     FloatArrayF< 3 > delta;
+    FloatArrayF< 3 > Num;
     
     double Le = status->giveLe();
 
@@ -210,9 +254,17 @@ FloatArrayF< 6 >
     for (int i =1; i<=3; i++){ 
       if( principalCrackingStrain.at(i) > 0 && principalCrackingStrain.at(i) <= e_cu ){
 	delta.at(i) = sqrt(Le*principalCrackingStrain.at(i)*D+D*D/2.)-D/2.;
+        //Chao: Here I tried to calculate number of crack with linear relationship with delta
+        Num.at(i) = (Le-sm)*delta.at(i)/(sm*delta_cu)+1;
+        // Then I tried to write number of cracks at this stage to status
+        status->letTempNumBe(Num);
       }
       else if( principalCrackingStrain.at(i) > e_cu && principalCrackingStrain.at(i) <= e_ul ){
 	delta.at(i) = Le*(principalCrackingStrain.at(i)-delta_cu/sm)+delta_cu;
+
+        Num.at(i) = Le/sm;
+
+        status->letTempNumBe(Num);
       }
     }
 
@@ -226,16 +278,52 @@ FloatArrayF< 6 >
         else if ( principalCrackingStrain.at( i ) > e_ul || principalCrackingStrain.at( i ) <= 0 )
             principalStressFibres.at( i ) = 0;
     }
+    // Chao : Here I tried to write the  pricipal stress matrix of fibres to status before 'else' unloading start
+    status->letTempPrincipalStressFibresBe(principalStressFibres);
 
     stressFibres = transformStressVectorTo(strainPrincipalDir, principalStressFibres, 1);    
 
     
   }//end of loading
   else{
+      auto tempStrain = status->giveTempReducedStrain();
+
+
+      auto tempPlasticStrain = status->giveTempPlasticStrain();
+
+      FloatArrayF< 6 > crackingStrain;
+      crackingStrain = tempPlasticStrain + tempDamageTension*(tempStrain-tempPlasticStrain);
+
+      auto tmp = computePrincipalValDir( from_voigt_strain(crackingStrain) );  ///@todo CHECK
+      auto principalCrackingStrain = tmp.first;
+      auto strainPrincipalDir = tmp.second;
+      //Chao: Here I tried to get number of cracks from previous steps just before unloading start.
+      auto num = status->giveNum();
+      //Chao: Here I tried to get principal stress of fibres from loading steps just before unloading start
+      auto stressfibres0 = status->givePrincipalStressFibres();
+      //Chao : Here I tried to get principal cracking strain from loading steps just before unloading start
+      auto principalstrain0 = status->givePrincipalCrackingStrain();
+
+
+
+      double Le = status->giveLe();
+      FloatArrayF<6> principalStressFibres;
+
+
+       //Here I tried to calculate the principal stress of fibres with principal cracking strain,
+      for (int i =1; i<=3; i++) {
+	principalStressFibres.at(i)=stressfibres0.at(i)-(vf*ef*Le/(2*lf*num.at(i)))*(principalstrain0.at(i)-principalCrackingStrain.at(i));
+
+          }
+          stressFibres = transformStressVectorTo(strainPrincipalDir, principalStressFibres, 1);
+
+
     printf("Here we need to implement the unloading. For this we need to have a measure of irreversible and reversible displacements.\n");
-  }
+     }
 
   FloatArrayF< 6 >  stress = stressConcrete+stressFibres;
+  status->letTempStressFibresBe(stressFibres);
+  status->letTempStressConcreteBe(stressConcrete);
   status->letTempStrainVectorBe(fullStrainVector);
   status->letTempStressVectorBe(stress);
 

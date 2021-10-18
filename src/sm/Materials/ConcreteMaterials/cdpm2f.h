@@ -71,19 +71,48 @@ protected:
   
   FloatArrayF< 6 >stressConcrete;
   FloatArrayF< 6 >tempStressConcrete;
+  FloatArrayF< 3 >Num;
+  FloatArrayF< 3 >tempNum;
 
   FloatArrayF< 6 >stressFibres;
   FloatArrayF< 6 >tempStressFibres;
+  FloatArrayF< 3 >principalCrackingStrain;
+  FloatArrayF< 3 >tempPrincipalCrackingStrain;
+  FloatArrayF< 6 >principalStressFibres;
+  FloatArrayF< 6 >tempPrincipalStressFibres;
+
 public:
     /// Constructor
     CDPM2FStatus(GaussPoint *gp);
     void initTempStatus() override;
     void updateYourself(TimeStep *tstep) override;
+    void printOutputAt(FILE *file, TimeStep *tStep) const override;
     const char *giveClassName() const override { return "CDPM2FStatus"; }
     const FloatArrayF< 6 > &giveStressConcrete() const { return stressConcrete; }
     const FloatArrayF< 6 > &giveTempStressConcrete() const { return tempStressConcrete; }
     const FloatArrayF< 6 > &giveStressFibres() const { return stressFibres; }
     const FloatArrayF< 6 > &giveTempStressFibres() const { return tempStressFibres; }
+    const FloatArrayF< 3 > &giveTempNum() const { return tempNum; }
+    const FloatArrayF< 3 > &giveNum() const { return Num; }
+    const FloatArrayF< 3 > &givePrincipalCrackingStrain() const { return principalCrackingStrain; }
+    const FloatArrayF< 3 > &giveTempPrincipalCrackingStrain() const { return tempPrincipalCrackingStrain; }
+    const FloatArrayF< 6 > &givePrincipalStressFibres() const { return principalStressFibres; }
+    const FloatArrayF< 6 > &giveTempPrincipalStressFibres() const { return tempPrincipalStressFibres; }
+
+    void letTempStressFibresBe(const FloatArrayF< 6 > &v)
+    { tempStressFibres = v; }
+
+    void letTempStressConcreteBe(const FloatArrayF< 6 > &v)
+    { tempStressConcrete = v; }
+
+    void letTempPrincipalCrackingStrainBe(const FloatArrayF< 3 > &v)
+    { tempPrincipalCrackingStrain = v; }
+
+    void letTempPrincipalStressFibresBe(const FloatArrayF< 6 > &v)
+    { tempPrincipalStressFibres = v; }
+
+    void letTempNumBe(const FloatArrayF< 3 > &v)
+    { tempNum = v; }
 }; 
 
 
@@ -101,8 +130,6 @@ class CDPM2F : public ConcreteDPM2
 public:
 
 protected:
- 
-
 
   double lf=0.;
   double vf=0.;
@@ -132,6 +159,7 @@ protected:
 
     const char *giveClassName() const override { return "CDPM2F"; }
     const char *giveInputRecordName() const override { return _IFT_CDPM2F_Name; }
+
 
     //void giveRealStressVector_1d(FloatArray &answer, GaussPoint *gp, const FloatArray &totalStrain, TimeStep *tStep) override;
 
