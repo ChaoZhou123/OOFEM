@@ -308,12 +308,26 @@ FloatArrayF< 6 >
 
       double Le = status->giveLe();
       FloatArrayF<6> principalStressFibres;
+      FloatArrayF<3> deltaPrincipalStrain;
 
 
        //Here I tried to calculate the principal stress of fibres with principal cracking strain,
       for (int i =1; i<=3; i++) {
-	principalStressFibres.at(i)=stressfibres0.at(i)-(vf*ef*Le/(2*lf*num.at(i)))*(principalstrain0.at(i)-principalCrackingStrain.at(i));
+          deltaPrincipalStrain.at( i ) = principalstrain0.at( i ) - principalCrackingStrain.at( i );
+          if ( deltaPrincipalStrain.at( i ) < 0. ) {
+              deltaPrincipalStrain.at( i ) = 0.;
+          }
+          if ( num.at( i ) <= 0 ) {
+              principalStressFibres.at( i ) = 0.0;
+          }
+          else
+          {
+          principalStressFibres.at( i ) = stressfibres0.at( i ) - ( vf * ef * Le / ( lf * num.at( i ) ) ) * deltaPrincipalStrain.at( i );
+           if(principalStressFibres.at(i)<0){
+               principalStressFibres.at(i)=0;
+           }
 
+          }
           }
           stressFibres = transformStressVectorTo(strainPrincipalDir, principalStressFibres, 1);
 
