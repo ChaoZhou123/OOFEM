@@ -160,7 +160,7 @@ CDPM2F::initializeFrom(InputRecord &ir)
     printf( "fibre Young's modulus = %e\n", ef );
 
     IR_GIVE_FIELD( ir, tau0, _IFT_CDPM2F_Tau0 );
-    printf( "initail bond strength = %e\n", tau0 );
+    printf( "initial bond strength = %e\n", tau0 );
 
     IR_GIVE_FIELD( ir, beta, _IFT_CDPM2F_Beta );
     printf( "slip hardening coefficient = %e\n", beta );
@@ -211,9 +211,12 @@ FloatArrayF< 6 >
   auto tempStateFlag = status->giveTempStateFlag();
 
   if (tempStateFlag == CDPM2FStatus::ConcreteDPM2_Elastic || tempStateFlag == CDPM2FStatus::ConcreteDPM2_Plastic){
-    printf("No crack yet. Fibres should not be active\n");
   }
   else if(tempDamageTension >0. && (tempStateFlag == CDPM2FStatus::ConcreteDPM2_Damage || tempStateFlag == CDPM2FStatus::ConcreteDPM2_PlasticDamage)){//Calculate the cracking strain and fibre stress only if there is tensile damage. This will fix problems with zero length. In CDPM2, the length is only calculated if there is damage.
+
+
+
+
 
     //auto tempKappaDOne = status->giveTempKappaDOne();
     //auto tempKappaDTwo = status->giveTempKappaDTwo();
@@ -283,6 +286,7 @@ FloatArrayF< 6 >
 
     stressFibres = transformStressVectorTo(strainPrincipalDir, principalStressFibres, 1);    
 
+    printf("loading\n");
     
   }//end of loading
   else{
@@ -298,7 +302,7 @@ FloatArrayF< 6 >
       auto principalCrackingStrain = tmp.first;
       auto strainPrincipalDir = tmp.second;
       //Chao: Here I tried to get number of cracks from previous steps just before unloading start.
-      auto num = status->giveNum();
+      auto num = status->giveTempNum();
       //Chao: Here I tried to get principal stress of fibres from loading steps just before unloading start
       auto stressfibres0 = status->givePrincipalStressFibres();
       //Chao : Here I tried to get principal cracking strain from loading steps just before unloading start
@@ -330,10 +334,9 @@ FloatArrayF< 6 >
           }
           }
           stressFibres = transformStressVectorTo(strainPrincipalDir, principalStressFibres, 1);
+	  printf("unloading\n");
 
-
-    printf("Here we need to implement the unloading. For this we need to have a measure of irreversible and reversible displacements.\n");
-     }
+  }
 
   FloatArrayF< 6 >  stress = stressConcrete+stressFibres;
   status->letTempStressFibresBe(stressFibres);
