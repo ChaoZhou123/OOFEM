@@ -256,7 +256,7 @@ FloatArrayF< 6 >
   
     for (int i =1; i<=3; i++){ 
       if( principalCrackingStrain.at(i) > 0 && principalCrackingStrain.at(i) <= e_cu ){
-	delta.at(i) = sqrt(Le*principalCrackingStrain.at(i)*D+D*D/2.)-D/2.;
+	delta.at(i) = sqrt(Le*principalCrackingStrain.at(i)*D+D*D/4.)-D/2.;
         //Chao: Here I tried to calculate number of crack with linear relationship with delta
         Num.at(i) = (Le-sm)*delta.at(i)/(sm*delta_cu)+1;
         // Then I tried to write number of cracks at this stage to status

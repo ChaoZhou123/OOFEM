@@ -152,6 +152,9 @@ CDPM2F2::computeDamageParamTension(double equivStrain, double kappaOne, double k
         }
     }
 
+    
+    
+
     double help;
     if ( equivStrain > e0 * ( 1. - yieldTolDamage ) ) {
         if ( softeningType == 0 ) { //linear
@@ -192,7 +195,59 @@ CDPM2F2::computeDamageParamTension(double equivStrain, double kappaOne, double k
                 }
             } while ( fabs(residual / ftTemp) >= 1.e-8 );
         }
-    } else {
+        else if (softeningType == 3) { // fiber stress
+
+            double D        = sm * delta_cu / ( le - sm );
+
+
+            double e_cu = delta_cu / sm;
+
+            double e_star = ( ( delta_star * delta_star ) * ( le - sm ) / ( sm * delta_cu ) + delta_star ) / le;
+
+            double e_ul = ( 0.5 * lf - delta_cu ) / le + delta_cu / sm;
+            omega           = 1.; // initial guess
+            double residual = 0.;
+            double a = 0.;
+            int nite=0;
+                do{
+                    nite++;
+            double e_cr  = kappaOne + omega * kappaTwo;
+            auto delta = sqrt( le * e_cr * D + D * D / 4. ) - D / 2.;
+            if ( e_cr > 0 && e_cr <= e_cu ) {
+                double delta = sqrt( le * e_cr * D + D * D / 4. ) - D / 2.;
+
+            } else if ( e_cr > e_cu && e_cr <= e_ul ) {
+                double delta = le * ( e_cr - delta_cu / sm ) + delta_cu;
+            }
+
+            double fibre = 0.;
+            if ( e_cr > 0 && e_cr <= e_star ) {
+                 fibre = ( 2. / k * ( ( 1. - acosh( 1. + lamda * delta / delta_star ) / k ) * sqrt( pow( ( 1. + lamda * delta / delta_star ), 2. ) - 1. ) + ( lamda * delta ) / ( k * delta_star ) ) * s0 );
+            } else if ( e_cr > e_star && e_cr <= e_ul ) {
+
+
+                 fibre = ( 1. + beta * delta / df ) * ( pow( ( 1. - 2. * delta / lf ), 2. ) ) * s0;
+            } else if ( e_cr > e_ul || e_cr <= 0 ) {
+                 fibre = 0;
+            }
+
+
+
+                residual = ( 1 - omega ) * this->eM * equivStrain - ftTemp * exp( -le * ( omega * kappaTwo + kappaOne ) / wfMod ) - fibre;
+                if (residual<0){
+                    omega = (omega+a)/2.;
+                }
+                else if (residual>0) {
+                    double c = omega*2.-a;
+                    a=(c + a)/2.;
+                    omega = (c+a)/2.;
+                }
+
+                }
+                while( residual>0.00001 || nite<100);
+            }
+
+        else {
         omega = 0.;
     }
 
@@ -210,3 +265,4 @@ CDPM2F2::computeDamageParamTension(double equivStrain, double kappaOne, double k
 }
 
 } //end of namespace
+}
