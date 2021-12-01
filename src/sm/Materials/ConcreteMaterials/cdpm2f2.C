@@ -74,8 +74,8 @@ void
 CDPM2F2::initializeFrom(InputRecord &ir)
 {
     // call the corresponding service for the linear elastic material
-    ConcreteDPM2::initializeFrom(ir);
-
+  ConcreteDPM2::initializeFrom(ir);
+   
     //Chao: your input
     
     IR_GIVE_FIELD( ir, lf, _IFT_CDPM2F2_Lf );
@@ -133,9 +133,15 @@ CDPM2F2::computeDamageParamTension(double equivStrain, double kappaOne, double k
 {
 
   //Chao: This is the function that you would need to edit to obtain your fibre response. The hardening part should be modelled as a stress-inelastic strain curve (not crack band approach). The  softening part should be formulated as a stress-crack opening curve.
+
+
+  //Chao: Keep stype either 0, 1 or 2. Use this info then here when you implement your fibre damage function. You need to add the fibre stress to the concrete stress when you set up the residual. The concrete stress will depend on the residual.
   
     double omega = 0.;
 
+    double fibre = 0.;
+    double concrete = 0.;
+    
     //So that damage does not turn out to be negative if function is entered for equivstrains smaller thatn e0.
     double ftTemp = this->ft * ( 1. - yieldTolDamage );
 
@@ -152,51 +158,9 @@ CDPM2F2::computeDamageParamTension(double equivStrain, double kappaOne, double k
         }
     }
 
-    
-    
-
+   
     double help;
-    if ( equivStrain > e0 * ( 1. - yieldTolDamage ) ) {
-        if ( softeningType == 0 ) { //linear
-            omega = ( this->eM * equivStrain * wfMod - ftTemp * wfMod + ftTemp * kappaOne * le ) /
-                    ( this->eM * equivStrain * wfMod - ftTemp * le * kappaTwo );
-        } else if ( softeningType == 1 ) { //bilinear: Calculate damage parameter for both parts of bilinear curve  and check which fulfils limits.
-            omega = ( this->eM * equivStrain * wfOneMod - ftTemp * wfOneMod - ( this->ftOne - ftTemp ) * kappaOne * le ) /
-                    ( this->eM * equivStrain * wfOneMod + ( this->ftOne - ftTemp ) * le * kappaTwo );
-            help = le * kappaOne + le * omega * kappaTwo;
-
-            if ( help >= 0. && help < wfOneMod ) {
-                return omega;
-            }
-
-            omega = ( this->eM * equivStrain * ( wfMod - wfOneMod ) - this->ftOne * ( wfMod - wfOneMod ) +
-                      this->ftOne * kappaOne * le  - this->ftOne * wfOneMod ) /
-                    ( this->eM * equivStrain * ( wfMod - wfOneMod )  - this->ftOne * le * kappaTwo );
-            help = le * kappaOne + le * omega * kappaTwo;
-
-            if ( help > wfOneMod && help < wfMod ) {
-                return omega;
-            }
-        } else if ( softeningType == 2 ) { //exponential: Iterative solution
-            omega = 1.; //Initial guess
-            double residual = 0.;
-            double dResidualDOmega = 0.;
-            int nite = 0;
-
-            do {
-                nite++;
-
-                residual  = ( 1 - omega ) * this->eM * equivStrain - ftTemp * exp(-le * ( omega * kappaTwo + kappaOne ) / wfMod);
-                dResidualDOmega = -this->eM * equivStrain + ftTemp * le * kappaTwo / wfMod * exp(-le * ( omega * kappaTwo + kappaOne ) / wfMod);
-
-                omega -= residual / dResidualDOmega;
-                if ( nite > newtonIter ) {
-                    OOFEM_ERROR("algorithm not converging");
-                }
-            } while ( fabs(residual / ftTemp) >= 1.e-8 );
-        }
-        else if (softeningType == 3) { // fiber stress
-
+    if ( equivStrain > e0 * ( 1. - yieldTolDamage ) ) {//Check if damage should start
             double D        = sm * delta_cu / ( le - sm );
 
 
@@ -209,60 +173,76 @@ CDPM2F2::computeDamageParamTension(double equivStrain, double kappaOne, double k
             double residual = 0.;
             double a = 0.;
             int nite=0;
-                do{
-                    nite++;
-            double e_cr  = kappaOne + omega * kappaTwo;
-            auto delta = sqrt( le * e_cr * D + D * D / 4. ) - D / 2.;
-            if ( e_cr > 0 && e_cr <= e_cu ) {
+	    do{
+	      nite++;
+	      //Chao: Check here for nite<100
+	      if(nite == 100){
+		OOFEM_ERROR("In computeDamageTension: bisection method not converged");
+	      }
+	      
+	      double e_cr  = kappaOne + omega * kappaTwo;
+	      auto delta = sqrt( le * e_cr * D + D * D / 4. ) - D / 2.;
+	      if ( e_cr > 0 && e_cr <= e_cu ) {
                 double delta = sqrt( le * e_cr * D + D * D / 4. ) - D / 2.;
-
-            } else if ( e_cr > e_cu && e_cr <= e_ul ) {
+		
+	      } else if ( e_cr > e_cu && e_cr <= e_ul ) {
                 double delta = le * ( e_cr - delta_cu / sm ) + delta_cu;
-            }
-
-            double fibre = 0.;
-            if ( e_cr > 0 && e_cr <= e_star ) {
-                 fibre = ( 2. / k * ( ( 1. - acosh( 1. + lamda * delta / delta_star ) / k ) * sqrt( pow( ( 1. + lamda * delta / delta_star ), 2. ) - 1. ) + ( lamda * delta ) / ( k * delta_star ) ) * s0 );
-            } else if ( e_cr > e_star && e_cr <= e_ul ) {
-
-
-                 fibre = ( 1. + beta * delta / df ) * ( pow( ( 1. - 2. * delta / lf ), 2. ) ) * s0;
-            } else if ( e_cr > e_ul || e_cr <= 0 ) {
-                 fibre = 0;
-            }
-
-
-
-                residual = ( 1 - omega ) * this->eM * equivStrain - ftTemp * exp( -le * ( omega * kappaTwo + kappaOne ) / wfMod ) - fibre;
-                if (residual<0){
-                    omega = (omega+a)/2.;
-                }
-                else if (residual>0) {
-                    double c = omega*2.-a;
-                    a=(c + a)/2.;
-                    omega = (c+a)/2.;
-                }
-
-                }
-                while( residual>0.00001 || nite<100);
-            }
-
-        else {
-        omega = 0.;
+	      }
+	      
+	      //Chao: I have put initialisation to start of function
+	      // double fibre = 0.;
+	      if ( e_cr > 0 && e_cr <= e_star ) {
+		fibre = ( 2. / k * ( ( 1. - acosh( 1. + lamda * delta / delta_star ) / k ) * sqrt( pow( ( 1. + lamda * delta / delta_star ), 2. ) - 1. ) + ( lamda * delta ) / ( k * delta_star ) ) * s0 );
+	      } else if ( e_cr > e_star && e_cr <= e_ul ) {
+		
+		
+		fibre = ( 1. + beta * delta / df ) * ( pow( ( 1. - 2. * delta / lf ), 2. ) ) * s0;
+	      } else if ( e_cr > e_ul || e_cr <= 0 ) {
+		fibre = 0;
+	      }
+	      
+	      //Chao: Distinguish here between softypes. I have written only the exponential one. However, you can write corresponding linear and bilinear.
+	      if(this->softeningType == 0){
+		//Chao: implement the linear law
+	      }
+	      else if(this->softeningType == 1){
+		//Chao: Implement the bilinear law
+	      }
+	      else if(this->softeningType == 2){
+		concrete = ftTemp * exp( -le * ( omega * kappaTwo + kappaOne ) / wfMod );	      
+	      }
+	    
+	      residual = ( 1. - omega ) * this->eM * equivStrain - concrete - fibre;
+	      printf("residual = %e, fibre = %e, concrete = %e\n", residual, fibre, concrete);
+	      
+	      
+	      if (residual<0){
+		omega = (omega+a)/2.;
+	      }
+	      else if (residual>0) {
+		double c = omega*2.-a;
+		a=(c + a)/2.;
+		omega = (c+a)/2.;
+	      }
+	      
+	    }
+	    while( fabs(residual)>0.00001); //Chao: You need to check the norm of residual. If nite =100, there should be an error message. Otherwise, it will stop without being converged. Put this check at start.
+	    
+    }    
+    else {
+      omega = 0.;
     }
-
-
+    
+    
     if ( omega > 1. ) {
-        omega = 1.;
+      omega = 1.;
     }
-
+    
     if ( omega < 0. || omega < omegaOld ) {
-        omega = omegaOld;
+      omega = omegaOld;
     }
-
-
+    
     return omega;
 }
 
 } //end of namespace
-}
