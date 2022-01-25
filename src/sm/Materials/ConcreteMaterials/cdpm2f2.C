@@ -149,6 +149,7 @@ CDPM2F2::computeDamageParamTension(double equivStrain, double kappaOne, double k
         eCu = this->deltaCu / this->sm;
 
         eStar = this->deltaStar / this->sm;
+        //eStar =  ((deltaStar*deltaStar)*(le-sm)/(sm*deltaCu)+deltaStar)/le;
 
         eUl = ( 0.5 * lf - this->deltaCu ) / le + this->deltaCu / this->sm;
         omega           = 1.;    // initial guess
@@ -164,7 +165,7 @@ CDPM2F2::computeDamageParamTension(double equivStrain, double kappaOne, double k
             eCr  = kappaOne + omega * kappaTwo;
             delta = 0.;
             if ( eCr > 0 && eCr <= eCu ) {
-                //               double delta = sqrt( le * eCr * D + D * D / 4. ) - D / 2.;
+	      //delta = sqrt( le * eCr * D + D * D / 4. ) - D / 2.;
                 delta = eCr * sm;
             } else if ( eCr > eCu && eCr <= eUl ) {
                 delta = le * ( eCr - deltaCu / sm ) + deltaCu;
@@ -188,7 +189,8 @@ CDPM2F2::computeDamageParamTension(double equivStrain, double kappaOne, double k
                 concrete = ftTemp * exp(-le * ( omega * kappaTwo + kappaOne ) / wfMod);
             }
 
-            residual = ( 1. - omega ) * this->eM * equivStrain - concrete - fibre;
+            residual = ( 1. - omega ) * this->eM * equivStrain  - fibre;
+            printf("omega = %e, residual = %e, fibre = %e, concrete = %e\n", omega, residual, fibre, concrete);
 
             if ( residual < 0 ) {
                 omega = ( omega + a ) / 2.;

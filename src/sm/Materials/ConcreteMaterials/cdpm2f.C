@@ -275,18 +275,18 @@ FloatArrayF< 6 >
     
     for (int i = 1; i<=3; i++){
         if ( principalCrackingStrain.at( i ) > 0 && principalCrackingStrain.at( i ) <= e_star )
-	  principalStressFibres.at( i ) =( 2. / k * ( ( 1. - acosh( 1. + lamda * delta.at( i ) / delta_star ) / k ) * sqrt( pow( ( 1. + lamda * delta.at( i ) / delta_star ), 2. ) - 1. ) + ( lamda * delta.at( i ) ) / ( k * delta_star ) ) * s0);
+	  principalStressFibres.at( i ) =2. / k * ( ( 1. - acosh( 1. + lamda*delta.at( i ) /(delta_star) ) / k ) * sqrt( pow( ( 1. + lamda * delta.at( i ) / delta_star ), 2. ) - 1. ) + ( lamda*delta.at( i ) ) / ( k * delta_star ) ) * s0;
         else if ( principalCrackingStrain.at( i ) > e_star && principalCrackingStrain.at( i ) <= e_ul )
-	  principalStressFibres.at( i ) =  ( 1. + beta * delta.at( i ) / df ) * ( pow( (1.-2. * delta.at( i ) / lf), 2. )) * s0;
+	  principalStressFibres.at( i ) =  ( 1. + beta * delta.at( i ) / df ) *  pow( (1.- 2.*delta.at( i )/lf ), 2. ) * s0;
         else if ( principalCrackingStrain.at( i ) > e_ul || principalCrackingStrain.at( i ) <= 0 )
             principalStressFibres.at( i ) = 0;
     }
     // Chao : Here I tried to write the  pricipal stress matrix of fibres to status before 'else' unloading start
     status->letTempPrincipalStressFibresBe(principalStressFibres);
 
-    stressFibres = transformStressVectorTo(strainPrincipalDir, principalStressFibres, 1);    
+    stressFibres = transformStressVectorTo(strainPrincipalDir, principalStressFibres, 1);
 
-    printf("loading\n");
+    //printf("loading\n");
     
   }//end of loading
   else{
