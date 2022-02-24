@@ -165,18 +165,19 @@ CDPM2F2::computeDamageParamTension(double equivStrain, double kappaOne, double k
             eCr  = kappaOne + omega * kappaTwo;
             delta = 0.;
             if ( eCr > 0 && eCr <= eCu ) {
-	      //delta = sqrt( le * eCr * D + D * D / 4. ) - D / 2.;
-                delta = eCr * sm;
+	      // delta = sqrt( le * eCr * D + D * D / 4. ) - D / 2.;
+	       delta = eCr * sm;
             } else if ( eCr > eCu && eCr <= eUl ) {
                 delta = le * ( eCr - deltaCu / sm ) + deltaCu;
             }
 
             //Chao: I have put initialisation to start of function
             // double fibre = 0.;
+	    double dd =  ( 1. + beta * deltaStar / df ) * ( pow( ( 1. - 2. * deltaStar / lf ), 2.) ) * s0 -( 2. / k * ( ( 1. - acosh(1. + lamda * deltaStar / deltaStar) / k ) * sqrt(pow( ( 1. + lamda * deltaStar / deltaStar ), 2.) - 1.) + ( lamda * deltaStar ) / ( k * deltaStar ) ) * s0 );
             if ( eCr > 0 && eCr <= eStar ) {
                 fibre = ( 2. / k * ( ( 1. - acosh(1. + lamda * delta / deltaStar) / k ) * sqrt(pow( ( 1. + lamda * delta / deltaStar ), 2.) - 1.) + ( lamda * delta ) / ( k * deltaStar ) ) * s0 );
             } else if ( eCr > eStar && eCr <= eUl ) {
-                fibre = ( 1. + beta * delta / df ) * ( pow( ( 1. - 2. * delta / lf ), 2.) ) * s0;
+                fibre = ( 1. + beta * delta / df ) * ( pow( ( 1. - 2. * delta / lf ), 2.) ) * s0 - dd;
             } else if ( eCr > eUl || eCr <= 0 ) {
                 fibre = 0;
             }
@@ -186,17 +187,17 @@ CDPM2F2::computeDamageParamTension(double equivStrain, double kappaOne, double k
             } else if ( this->softeningType == 1 )      {
                 //Todo: Implement the bilinear law
             } else if ( this->softeningType == 2 )      {
-                concrete = ftTemp * exp(-le * ( omega * kappaTwo + kappaOne ) / wfMod);
+                concrete = ftTemp * exp(- delta / wfMod);
             }
 
             residual = ( 1. - omega ) * this->eM * equivStrain  - fibre;
-            printf("omega = %e, residual = %e, fibre = %e, concrete = %e\n", omega, residual, fibre, concrete);
+            //printf("omega = %e, residual = %e, fibre = %e, concrete = %e\n", omega, residual, fibre, concrete);
 
             if ( residual < 0 ) {
                 omega = ( omega + a ) / 2.;
             } else if ( residual > 0 )       {
                 double c = omega * 2. - a;
-                a = ( c + a ) / 2.;
+                a = omega;
                 omega = ( c + a ) / 2.;
             }
         }while( fabs(residual / this->ft) > 0.000001 );
