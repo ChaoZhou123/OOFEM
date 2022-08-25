@@ -29,7 +29,7 @@ SimpleCS 2 area 3.1416e-4 material 2 set 2
 InterfaceCS 3 thickness 6.28319e-2 material 3 set 3
 IsoLE 1 d 1.0 E 3.36e10 n 0.2 tAlpha 1.0
 IsoLE 2 d 1.0 E 2e11 n 0.3 tAlpha 1.0
-bondceb 3 kn 6e12 ks 6.135e10 s1 0.001 s2 0.002 s3 0.0065 taumax 1.541e7 tauf 6.164e6
+bondceb 3 kn 100.e12 ks 100.e9 s1 0.0007 s2 0.002 s3 0.006 taumax 23e6 tauf 10e6
 BoundaryCondition 1 loadTimeFunction 1 dofs 1 1 values 1 0.0 set 4
 BoundaryCondition 2 loadTimeFunction 1 dofs 1 2 values 1 0.0 set 5
 BoundaryCondition 3 loadTimeFunction 1 dofs 1 1 values 1 8e-3 set 6

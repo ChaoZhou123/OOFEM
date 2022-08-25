@@ -55,7 +55,7 @@
 #define _IFT_CDPM2F2_f "f"
 #define _IFT_CDPM2F2_Ef "ef"
 #define _IFT_CDPM2F2_Sm "sm"
-#define _IFT_CDPM2F2_convergenceType "cType"
+#define _IFT_CDPM2F2_convergenceType "ctype"
 //@}
 
 namespace oofem {
@@ -106,7 +106,7 @@ protected:
     double c=0.;
     double deltaCu=0.;
     double sm=0.;
-    int ctype=1;
+    int ctype=0;
     
 public:
     /// Constructor
