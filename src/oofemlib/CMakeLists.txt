@@ -110,7 +110,8 @@ if (USE_PETSC)
     list (APPEND core_nm petscsolver.C petscsparsemtrx.C)
 endif ()
 
-if (USE_INTEL_MKL_PARDISO)
+if (USE_INTEL_MKL_PARDISO OR USE_ONEAPI)
+    message (STATUS "    MKL Solver is enabled for compilation")
     list (APPEND core_nm mklpardisosolver.C)
 endif ()
 
@@ -155,6 +156,7 @@ set (core_dofman
     dofmanager.C
     node.C
     slavenode.C
+    generalslavenode.C
     hangingnode.C
     qcnode.C
     rigidarmnode.C
@@ -176,9 +178,13 @@ set (core_export
     outputexportmodule.C
     errorcheckingexportmodule.C
     vtkexportmodule.C
+    vtkbaseexportmodule.C
     vtkxmlexportmodule.C
+    vtkmemoryexportmodule.C
     vtkxmlperiodicexportmodule.C
     vtkxmllatticeexportmodule.C
+    vtkpfemexportmodule.C
+    vtkxfemexportmodule.C
     homexportmodule.C
     matlabexportmodule.C
     gpexportmodule.C
@@ -205,6 +211,7 @@ set (core_arrays
 set (core_engng
     engngm.C
     staggeredproblem.C
+    dummyengngm.C
     )
 
 set (core_element

@@ -48,7 +48,8 @@ set (sm_element
     Elements/Plates/dkt3d.C
     Elements/Shells/rershell.C 
     Elements/Shells/tr_shell01.C 
-    Elements/Shells/tr_shell02.C 
+    Elements/Shells/tr_shell02.C
+    Elements/Shells/tr_shell11.C
     Elements/Shells/cct3d.C
     Elements/Shells/quad1mindlinshell3d.C
     Elements/Shells/shell7base.C
@@ -78,6 +79,8 @@ set (sm_element
     Elements/PlaneStress/basicelement.C
     Elements/PlaneStress/trplanestressrotallman3d.C
     Elements/PlaneStress/linquad3d_planestress.C
+    Elements/PlaneStress/qtrplstrslip.C
+    Elements/PlaneStress/qplanstrssslip.C
     Elements/AbaqusUserElement.C
     Elements/htselement.C
     Elements/lumpedmasselement.C
@@ -92,6 +95,7 @@ set (sm_element
     Elements/LatticeElements/latticelink3dboundary.C
     Elements/LatticeElements/latticebeam3d.C
     Elements/LatticeElements/latticebeam3dboundary.C
+    Elements/LatticeElements/latticeframe3d.C
     Elements/tet21ghostsolid.C
     Elements/quad1platesubsoil.C 
     Elements/quad2platesubsoil.C
@@ -150,6 +154,11 @@ set (sm_interface_elements
 
 set (sm_boundary_conditions
     Deprecated/prescribedgenstrainshell7.C
+        prescribeddispsliphomogenization.C
+        prescribeddispslipbcdirichletrc.C
+        prescribeddispslipbcneumannrc.C
+        prescribeddispslipmultiple.C
+        transversereinfconstraint.C
     )
 
 set (sm_crosssection
@@ -180,6 +189,7 @@ set (sm_emodel
     EngineeringModels/freewarping.C 
     EngineeringModels/structuralmaterialevaluator.C
     EngineeringModels/qclinearstatic.C
+    EngineeringModels/pdelta.C
     )
 
 set (sm_loads
@@ -235,6 +245,7 @@ set (sm_material
     Materials/RheoChainMaterials/mpsdammat.C
     Materials/RheoChainMaterials/eurocode2creep.C
     Materials/structuralfe2material.C
+    Materials/structuralslipfe2material.C
     Materials/rcsd.C 
     Materials/rcsde.C 
     Materials/rcsdnl.C
@@ -284,9 +295,14 @@ set (sm_material
     Materials/LatticeMaterials/latticeplasticitydamage.C
     Materials/LatticeMaterials/latticeslip.C
     Materials/LatticeMaterials/latticeplasticitydamageviscoelastic.C
+    Materials/LatticeMaterials/latticeframeelastic.C
+    Materials/LatticeMaterials/latticeframesteelplastic.C
+    Materials/1D/isoasymm1d.C
 )
 
-    
+if (USE_MFRONT)
+    list (APPEND sm_material Materials/mfrontusermaterial.C)
+endif ()
 
 if (USE_BOOSTPYTHON_BINDINGS AND USE_PYTHON_EXTENSION)
     list (APPEND sm_material Materials/structuralpythonmaterial.C)

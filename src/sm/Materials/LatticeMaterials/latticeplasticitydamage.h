@@ -78,9 +78,45 @@ protected:
 
     double tempDamage = 0.;
 
+    double dissipation = 0.;
+    
+    double tempDissipation = 0.;
+
+    double tensionDissipation = 0.;
+    
+    double tempTensionDissipation = 0.;
+
+    double compressionDissipation = 0.;
+    
+    double tempCompressionDissipation = 0.;
+
+    double shearDissipation = 0.;
+    
+    double tempShearDissipation = 0.;
+
+    double deltaDissipation = 0.;
+    
+    double tempDeltaDissipation = 0.;
+
+    double tensionDeltaDissipation = 0.;
+    
+    double tempTensionDeltaDissipation = 0.;
+
+    double compressionDeltaDissipation = 0.;
+    
+    double tempCompressionDeltaDissipation = 0.;
+
+    double shearDeltaDissipation = 0.;
+    
+    double tempShearDeltaDissipation = 0.;
+
+    int deletionFlag = 0;
+    int tempDeletionFlag = 1.;
+    
     //double e0 = 0.;
 
     int compressionFlag = 0;
+
 
 public:
 
@@ -93,7 +129,7 @@ public:
 
     double giveKappaDOne() const { return kappaDOne; }
     double giveKappaDTwo() const { return kappaDTwo; }
-    //   double giveKappaDThree() { return kappaDThree; }
+
     double giveTempKappaDOne() const { return tempKappaDOne; }
     double giveTempKappaDTwo() const { return tempKappaDTwo; }
 
@@ -103,14 +139,36 @@ public:
 
     void   setTempKappaDTwo(double newKappa) { tempKappaDTwo = newKappa; }
 
-    //void   setTempKappaDThree(double newKappa) { tempKappaDThree = newKappa; }
-
     double giveDamage() const { return damage; }
 
     double giveTempDamage() const { return tempDamage; }
 
     void   setTempDamage(double newDamage) { tempDamage = newDamage; }
 
+    double giveDissipation() const override {return dissipation;}
+    double giveTensionDissipation() const {return tensionDissipation;}
+    double giveCompressionDissipation() const {return compressionDissipation;}
+    double giveShearDissipation() const {return shearDissipation;}
+
+    double giveDeltaDissipation() const override {return deltaDissipation;}
+    double giveTensionDeltaDissipation() const {return tensionDeltaDissipation;}
+    double giveCompressionDeltaDissipation() const {return compressionDeltaDissipation;}
+    double giveShearDeltaDissipation() const {return shearDeltaDissipation;}
+    
+    void setTempDissipation(double newDiss) {this->tempDissipation = newDiss;}
+    void setTempTensionDissipation(double newDiss) {this->tempTensionDissipation = newDiss;}
+    void setTempCompressionDissipation(double newDiss) {this->tempCompressionDissipation = newDiss;}
+    void setTempShearDissipation(double newDiss) {this->tempShearDissipation = newDiss;}
+
+    void setTempDeltaDissipation(double newDiss) {this->tempDeltaDissipation = newDiss;}
+    void setTempTensionDeltaDissipation(double newDiss) {this->tempTensionDeltaDissipation = newDiss;}
+    void setTempCompressionDeltaDissipation(double newDiss) {this->tempCompressionDeltaDissipation = newDiss;}
+    void setTempShearDeltaDissipation(double newDiss) {this->tempShearDeltaDissipation = newDiss;}
+
+    void setTempDeletionFlag(int newFlag) {this->tempDeletionFlag = newFlag;}
+    int giveDeletionFlag() const{ return this->deletionFlag;}
+    int giveTempDeletionFlag() const{ return this->tempDeletionFlag;}
+    
     int giveCompressionFlag() const { return compressionFlag; }
 
     void setCompressionFlag(int flag) { compressionFlag = flag; }
@@ -128,6 +186,7 @@ public:
     void restoreContext(DataStream &stream, ContextMode mode) override;
 };
 
+
 /**
  * This class implements a local random plasticity damage model for concrete for lattice elements.
  */
@@ -135,8 +194,11 @@ class LatticePlasticityDamage : public LatticeLinearElastic
 {
 protected:
 
-    enum LatticePlasticityDamage_ReturnResult { RR_NotConverged, RR_Converged };
-    mutable LatticePlasticityDamage_ReturnResult returnResult = RR_NotConverged; /// FIXME: This must be removed. Not thread safe. Shouldn't be stored at all.
+    enum LatticePlasticityDamage_ReturnResult {
+        RR_Unknown,
+        RR_NotConverged,
+        RR_Converged
+    };
 
     double initialYieldStress = 0.;
 
@@ -171,11 +233,12 @@ protected:
 
     /// yield tolerance
     double yieldTol = 0.;
+
     /// maximum number of iterations for stress return
     int newtonIter = 0;
     int numberOfSubIncrements = 0;
 
-    //damageFlag
+    ///damageFlag
     int damageFlag = 0;
 
     virtual double giveTensileStrength(GaussPoint *gp, TimeStep *tStep) const { return this->give(ft_strength, gp) * this->ft; }
@@ -201,24 +264,39 @@ public:
 
     bool hasMaterialModeCapability(MaterialMode mode) const override;
 
-    // Doesn't exist? old code:
-    //FloatMatrix<X,X> computeBMatrix(const FloatArrayF<3> &sigma, const double deltaLambda) const;
 
-    /* FloatMatrixF< 3, 3 >computeAMatrix(const FloatArrayF< 3 > &sigma, const double tempKappa, */
-    /*                                    const double deltaLambda, GaussPoint *gp) const; */
+    double computeDeltaDissipation(const double omega,
+				   const FloatArray &reducedStrain,
+				   GaussPoint *gp,
+				   TimeStep *atTime) const;
+    
 
-    FloatArrayF< 3 >computeFVector(const FloatArrayF< 3 > &sigma, const double deltaLambda,
-                                   GaussPoint *gp, TimeStep *tStep) const;
+    FloatArrayF< 3 >computeFVector(const FloatArrayF< 3 > &sigma,
+                                   const double deltaLambda,
+                                   const int surface,
+                                   GaussPoint *gp,
+                                   TimeStep *tStep) const;
 
-    FloatArrayF< 3 >computeMVector(const FloatArrayF< 3 > &sigma, const double deltaLambda,
-                                   GaussPoint *gp, TimeStep *tStep) const;
+    FloatArrayF< 3 >computeMVector(const FloatArrayF< 3 > &sigma,
+                                   const double deltaLambda,
+                                   const int surface,
+                                   GaussPoint *gp,
+                                   TimeStep *tStep) const;
 
-    FloatMatrixF< 3, 3 >computeDMMatrix(const FloatArrayF< 3 > &sigma, const double deltaLambda,
+    FloatMatrixF< 3, 3 >computeDMMatrix(const FloatArrayF< 3 > &sigma,
+                                        const double deltaLambda,
+                                        const int surface,
                                         GaussPoint *gp, TimeStep *tStep) const;
 
+    int checkTransition(const FloatArrayF< 3 > &sigma, const double tempKappa, GaussPoint *gp, TimeStep *tStep) const;
 
-    FloatMatrixF< 4, 4 >computeJacobian(const FloatArrayF< 3 > &sigma, const double tempKappa,
-                                        const double deltaLambda, GaussPoint *gp, TimeStep *tStep) const;
+
+    FloatMatrixF< 4, 4 >computeJacobian(const FloatArrayF< 3 > &sigma,
+                                        const double tempKappa,
+                                        const double deltaLambda,
+                                        const int surface,
+                                        GaussPoint *gp,
+                                        TimeStep *tStep) const;
 
     virtual double computeDamageParam(double kappaOne, double kappaTwo, GaussPoint *gp, TimeStep *tStep) const;
 
@@ -232,10 +310,16 @@ public:
                                  FloatArrayF< 6 > &reducedStrain,
                                  TimeStep *tStep) const;
 
-    double performRegularReturn(FloatArrayF< 3 > &stress, double yieldValue, GaussPoint *gp, TimeStep *tStep) const;
+    double performRegularReturn(FloatArrayF< 3 > &stress,
+                                LatticePlasticityDamage_ReturnResult &returnResult,
+                                double yieldValue,
+                                const int surface,
+                                GaussPoint *gp,
+                                TimeStep *tStep) const;
 
     double computeYieldValue(const FloatArrayF< 3 > &sigma,
                              const double tempKappa,
+                             const int surface,
                              GaussPoint *gp,
                              TimeStep *tStep) const;
 

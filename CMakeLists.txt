@@ -19,7 +19,8 @@ set (oofem_VERSION_MINOR 6)
 set (oofem_VERSION_PATCH 0) # Unused
 set (oofem_HOMEPAGE "http://www.oofem.org")
 set (bp_HOMEPAGE "http://ksm.fsv.cvut.cz/%7Ebp/bp.html")
-set (oofem_COPYRIGHT "Copyright (C) 1994-2020 Borek Patzak")
+string(TIMESTAMP YEAR "%Y")
+set (oofem_COPYRIGHT "Copyright (C) 1994-${YEAR} Borek Patzak")
 set (oofem_EMAIL "oofem@fsv.cvut.cz")
 
 set(CMAKE_MODULE_PATH  ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
@@ -28,6 +29,25 @@ set(CMAKE_MODULE_PATH  ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/"
 if (NOT CMAKE_BUILD_TYPE)
     set (CMAKE_BUILD_TYPE Debug)
 endif ()
+
+function(add_git_submodule dir)
+# add a Git submodule directory to CMake, assuming the
+# Git submodule directory is a CMake project.
+#
+# Usage: in CMakeLists.txt
+# 
+# include(AddGitSubmodule.cmake)
+# add_git_submodule(mysubmod_dir)
+  find_package(Git REQUIRED)
+  if(NOT EXISTS ${dir}/CMakeLists.txt)
+    execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive -- ${dir}
+      WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+      #COMMAND_ERROR_IS_FATAL ANY #cmake 3.19
+      )
+  endif()
+  add_subdirectory(${dir})
+endfunction(add_git_submodule)
+
 
 if (MSVC)
     add_definitions (-D_USE_MATH_DEFINES)
@@ -69,8 +89,10 @@ set (METIS_DIR CACHE PATH "Manual Metis directory (Load balancing)")
 set (PARMETIS_DIR CACHE PATH "Manual ParMetis directory (Load balancing)")
 #intel mkl pardiso
 set (INTEL_MKL_PARDISO_DIR CACHE PATH "Manual mkl pardiso directory (sparse direct solver)")
+set (INTEL_ONEAPI_DIR CACHE PATH "Manual path to oneAPI install directory (sparse direct solver)")
 #pardiso-project.org
 set (PARDISO_ORG_DIR CACHE PATH "Manual pardiso-project.org directory (sparse direct solver)")
+set (PARDISO_ORG_LIB CACHE PATH "Manual pardiso-project.org library's name with complete path (sparse direct solver)")
 #set (BOOST_DIR CACHE PATH "Manual Boost directory")
 set (PYBIND_DIR CACHE PATH "Manual pybind11 directory")
 
@@ -79,6 +101,7 @@ set (PYBIND_DIR CACHE PATH "Manual pybind11 directory")
 #######################################################################
 option (USE_OOFEG "Enable OOFEG" OFF)
 option (USE_SHARED_LIB "Build shared library" ON)
+option (USE_MFRONT "Build shared library" OFF)
 
 # Parallel stuff
 option (USE_PARALLEL "Enable parallel support" OFF)
@@ -89,7 +112,8 @@ option (USE_OPENMP "Compile with OpenMP support (for parallel assembly)" OFF)
 option (USE_DSS "Enable DSS module" OFF) # No reason to use this
 option (USE_IML "Enable iml++ solvers" OFF) # or this
 option (USE_SPOOLES "Enable SPOOLES-solver" OFF) # or this
-option (USE_INTEL_MKLPARDISO "Enable MKLPARDISO solver support" OFF)
+option (USE_INTEL_MKL_PARDISO "Enable MKLPARDISO solver support" OFF)
+option (USE_ONEAPI "Enable OneMKL solver support via OneAPI" OFF)
 option (USE_PARDISO_ORG "Enable PARDISO-project.org solver support" OFF)
 option (USE_PETSC "Enable PETSc support (specify PETSC_DIR and/or PETSC_ARCH if needed)" OFF)
 option (USE_SLEPC "Enable SLEPc support" OFF)
@@ -313,14 +337,17 @@ if (USE_METIS)
 endif ()
 
 if (USE_PARDISO_ORG)
-    if (PARDISO_ORG_DIR)
-        find_library (PARDISO_ORG_LIB pardiso PATH "${PARDISO_ORG_DIR}")
-    else ()
-        find_library (PARDISO_ORG_LIB pardiso)
+    if (NOT PARDISO_ORG_LIB)
+        if (PARDISO_ORG_DIR)
+            find_library (PARDISO_ORG_LIB pardiso PATH "${PARDISO_ORG_DIR}")
+        else ()
+            find_library (PARDISO_ORG_LIB pardiso)
+        endif ()
     endif ()
     if (${PARDISO_ORG_LIB} STREQUAL "PARDISO_ORG_LIB-NOTFOUND")
         message (FATAL_ERROR "Pardiso library not found")
     endif ()
+    message(STATUS "PARDISO_ORG_LIB = ${PARDISO_ORG_LIB}")
     list (APPEND EXT_LIBS ${PARDISO_ORG_LIB} blas lapack gfortran pthread)
     set (CMAKE_CXX_COMPILE_FLAGS "${CMAKE_CXX_COMPILES_FLAGS} -fopenmp")
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fopenmp" ) 
@@ -340,6 +367,38 @@ if (USE_INTEL_MKL_PARDISO)
         endif ()
         if (${${f}_LIB} STREQUAL "${f}_LIB-NOTFOUND")
             message (FATAL_ERROR "MKLPARDISO library not found")
+        endif ()
+        list (APPEND EXT_LIBS ${${f}_LIB})
+    endforeach ()
+    #list (APPEND EXT_LIBS ${MKLPARDISO_LIB})
+    list (APPEND MODULE_LIST "MKLPARDISO")
+endif ()
+
+if (USE_ONEAPI)
+    if (USE_INTEL_MKL_PARDISO)
+        message (FATAL_ERROR "Can't use both OneMKL and classic Intel MKL CMake (disable USE_INTEL_MKL_PARDISO)")
+    endif()
+    message(STATUS "Seeking OneAPI libraries...")
+    list(APPEND MKL_LIBS "mkl_core" "mkl_intel_lp64" "mkl_intel_thread" "pthread")
+    foreach (f ${MKL_LIBS})
+        if (INTEL_ONEAPI_DIR)
+            # user provided OneAPI directory
+            set(oneapiMklDir "${INTEL_ONEAPI_DIR}/mkl/latest")
+            message(STATUS "   Seeking for ${f} in custom path: ${oneapiMklDir}...")
+            find_library (${f}_LIB ${f} HINTS "${oneapiMklDir}/lib" DOC "MKLPARDISO (library)")
+            include_directories ("${oneapiMklDir}/include")
+        else ()
+            # an alternative could be obtaining from OneAPI's Environment variables
+            set(oneapiDir "/opt/intel/oneapi")
+            set(oneapiMklDir "${oneapiDir}/mkl/latest")
+            message(STATUS "    Seeking for ${f} in default path: ${oneapiMklDir}...")
+            find_library (${f}_LIB ${f} HINTS "${oneapiMklDir}/lib" DOC "MKLPARDISO (library)")
+            include_directories ("${oneapiMklDir}/include")
+        endif ()
+        if (${${f}_LIB} STREQUAL "${f}_LIB-NOTFOUND")
+            message (FATAL_ERROR "OneAPI ${f} library not found")
+        else()
+            message (STATUS "    OK: ${f} library successfully found at ${${f}_LIB}")
         endif ()
         list (APPEND EXT_LIBS ${${f}_LIB})
     endforeach ()
@@ -484,13 +543,14 @@ if (USE_PYTHON_EXTENSION OR USE_BOOSTPYTHON_BINDINGS)
     # PythonLibs in cmake is bugged, have to try and rely on PythonInterp to get the suitable major and minor versions.
     #set (CMAKE_LIBRARY_DIR ${PYTHON_DIR})
     #Print if set up manually
-    message(STATUS "PYTHON_LIBRARY = ${PYTHON_LIBRARY}")
-    message(STATUS "PYTHON_EXECUTABLE = ${PYTHON_EXECUTABLE}")
-    message(STATUS "PYTHON_INCLUDE_DIR = ${PYTHON_INCLUDE_DIR}")     
-    find_package(PythonInterp "3" REQUIRED)
-    find_package(PythonLibs "${PYTHON_VERSION_MAJOR}.${PYTHON_VERSION_MINOR}" REQUIRED)
-    include_directories (${PYTHON_INCLUDE_DIRS})
-    list (APPEND EXT_LIBS ${PYTHON_LIBRARIES})
+    message(STATUS "PYTHON_LIBRARY = ${Python3_LIBRARIES}")
+    message(STATUS "PYTHON_EXECUTABLE = ${Python3_EXECUTABLE}")
+    message(STATUS "PYTHON_INCLUDE_DIR = ${Python3_INCLUDE_DIRS}")
+    find_package (Python3 COMPONENTS Interpreter Development)
+#     find_package(PythonInterp "3" REQUIRED)
+#    find_package(PythonLibs "${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}" REQUIRED)
+    include_directories (${Python3_INCLUDE_DIRS})
+    list (APPEND EXT_LIBS ${Python3_LIBRARIES})
     list (APPEND MODULE_LIST "Python")
     if(USE_PYTHON_EXTENSION)
         add_definitions(-D_PYTHON_EXTENSION)    
@@ -498,7 +558,7 @@ if (USE_PYTHON_EXTENSION OR USE_BOOSTPYTHON_BINDINGS)
     
     if(USE_BOOSTPYTHON_BINDINGS)
         # require boost_python also for python stuff by itself
-        find_package(Boost COMPONENTS "python-py${PYTHON_VERSION_MAJOR}${PYTHON_VERSION_MINOR}" REQUIRED)
+        find_package(Boost COMPONENTS "python-py${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}" REQUIRED)
         include_directories (${Boost_INCLUDE_DIRS})
         list (APPEND EXT_LIBS ${Boost_LIBRARIES})
         add_definitions(-D_BOOSTPYTHON_BINDINGS)
@@ -515,23 +575,26 @@ endif()
 
 if (USE_PYBIND_BINDINGS)
     #build pybind11 bindings
-    find_package(PythonInterp 3.0 REQUIRED)
-    find_package(pybind11 REQUIRED CONFIG)
+    find_package(Python COMPONENTS Interpreter Development)
+    #find_package(pybind11 CONFIG)
+    add_git_submodule(extern/pybind11)
     if (PYBIND_DIR)
         message(STATUS "PYBIND_DIR = ${PYBIND_DIR}")
         include_directories (${PYBIND_DIR})#Need also to manually set it up since it can be anywhere
     endif ()
+    include_directories (${pybind11_INCLUDE_DIR} ${Python_INCLUDE_DIRS})
+    list (APPEND EXT_LIBS ${Python_LIBRARIES})
     pybind11_add_module(oofempy THIN_LTO ${oofem_SOURCE_DIR}/bindings/python/oofem.cpp ${PYBIND11_HEADERS})
     target_link_libraries(oofempy PRIVATE liboofem)
     set_target_properties (oofempy PROPERTIES SUFFIX "${PYTHON_MODULE_EXTENSION}")
 
     # Make sure pytest is found or produce a fatal error
     if(NOT PYTEST_FOUND)
-        execute_process(COMMAND ${PYTHON_EXECUTABLE} -c "import pytest; print(pytest.__version__)"
+        execute_process(COMMAND ${Python_EXECUTABLE} -c "import pytest; print(pytest.__version__)"
                         RESULT_VARIABLE pytest_not_found OUTPUT_VARIABLE pytest_version ERROR_QUIET)
         if(pytest_not_found)
             message(FATAL_ERROR "Running the tests requires pytest. Please install it manually"
-                    " (try: ${PYTHON_EXECUTABLE} -m pip install pytest)")
+                    " (try: ${Python_EXECUTABLE} -m pip install pytest)")
         endif()
         set(PYBIND11_PYTEST_FOUND TRUE CACHE INTERNAL "")
     add_definitions(-D_PYBIND_BINDINGS)
@@ -584,6 +647,7 @@ if (USE_BOOSTPYTHON_BINDINGS)
     set (oofempy ${oofem_SOURCE_DIR}/bindings/Deprecated/python/oofemlib.cpp)
 endif ()
 
+
 # Main targets
 if (USE_SHARED_LIB)
     add_library (liboofem
@@ -634,6 +698,11 @@ else ()
 endif ()
 
 install (TARGETS oofem DESTINATION bin)
+
+if (USE_MFRONT)
+    find_package (MFrontGenericInterface REQUIRED)
+    target_link_libraries(oofem mgis::MFrontGenericInterface)
+endif ()
 
 if (USE_OOFEG)
     #  OOFEG target:
@@ -801,6 +870,13 @@ if (USE_FM AND USE_PFEM)
     endforeach (case)
 endif()
 
+if (USE_SM AND USE_MFRONT)
+    file (GLOB smmfront_tests RELATIVE "${oofem_TEST_DIR}/smmfront" "${oofem_TEST_DIR}/smmfront/*.in")
+    foreach (case ${smmfront_tests})
+        add_test (NAME "test_sm_${case}" WORKING_DIRECTORY ${oofem_TEST_DIR}/smmfront COMMAND ${oofem_cmd} "-f" ${case})
+    endforeach (case)
+endif()
+
 
 ######################## Benchmarks ########################################
 
@@ -843,8 +919,11 @@ endif()
 
 # Custom targets for test and benchmarks (which can conveniently be accessed from IDEs)
 
-ProcessorCount(N)
+#ProcessorCount(N)
 if (N EQUAL 0)
+  set (N 1)
+endif ()
+if (USE_OPENMP) # OPENMP will use all processors by default
   set (N 1)
 endif ()
 
@@ -860,7 +939,7 @@ endif ()
 
 ######################## Tests of Python bindings ########################################
 if (USE_PYBIND_BINDINGS)
-    add_test (NAME "test_python_pybind11_bindings" WORKING_DIRECTORY ${oofem_SOURCE_DIR}/bindings/python COMMAND ${PYTHON_EXECUTABLE} "-m" "pytest" ${oofem_SOURCE_DIR}/bindings/python)
+    add_test (NAME "test_python_pybind11_bindings" WORKING_DIRECTORY ${oofem_SOURCE_DIR}/bindings/python COMMAND ${Python_EXECUTABLE} "-m" "pytest" ${oofem_SOURCE_DIR}/bindings/python)
     set_tests_properties("test_python_pybind11_bindings" PROPERTIES ENVIRONMENT "PYTHONPATH=${CMAKE_BINARY_DIR}")
 endif()
 

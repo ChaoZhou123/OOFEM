@@ -46,7 +46,7 @@
 #include "dynamicinputrecord.h"
 #include "engngm.h"
 #include "crosssection.h"
-
+#include "oofemtxtinputrecord.h"
 
 namespace oofem {
 REGISTER_Material(IsotropicDamageMaterial1);
@@ -817,7 +817,7 @@ IsotropicDamageMaterial1 :: computeDamageParamForCohesiveCrack(double kappa, Gau
         double ef = wf / Le;    //ef is the fracturing strain /// FIXME CHANGES BEHAVIOR!
         if ( ef < e0 ) { //check that no snapback occurs
             double minGf = 0.;
-            OOFEM_WARNING("ef %e < e0 %e, this leads to material snapback in element %d, characteristic length %f", ef, e0, gp->giveElement()->giveNumber(), Le);
+            OOFEM_WARNING("ef %e < e0 %e, this leads to material snapback in element %d, characteristic length %f", ef, e0, gp->giveElement()->giveGlobalNumber(), Le);
             if ( gf != 0. ) { //cohesive crack
                 if ( softType == ST_Exponential_Cohesive_Crack ) { //exponential softening
                     minGf = E * e0 * e0 * Le;
@@ -1293,6 +1293,33 @@ IsotropicDamageMaterial1 :: giveInterface(InterfaceType type)
         return static_cast< MaterialModelMapperInterface * >(this);
     } else {
         return nullptr;
+    }
+}
+
+void
+IsotropicDamageMaterial1::saveContext(DataStream &stream, ContextMode mode)
+{
+    if ( ( mode & CM_Definition ) ) {
+        DynamicInputRecord input;
+        this->giveInputRecord(input);
+        if ( !stream.write(input.giveRecordAsString()
+                           ) ) {
+            THROW_CIOERR(CIO_IOERR);
+        }
+    }
+}
+
+
+void
+IsotropicDamageMaterial1::restoreContext(DataStream &stream, ContextMode mode)
+{
+    if ( ( mode & CM_Definition ) ) {
+        std::string input;
+        if ( !stream.read(input) ) {
+            THROW_CIOERR(CIO_IOERR);
+        }
+        OOFEMTXTInputRecord ir(0, input);
+        this->initializeFrom(ir);
     }
 }
 
