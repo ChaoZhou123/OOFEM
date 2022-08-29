@@ -49,12 +49,11 @@
 #include <limits>
 
 namespace oofem {
-REGISTER_Material( CDPM2F2 );
+REGISTER_Material(CDPM2F2);
 
-CDPM2F2Status::CDPM2F2Status( GaussPoint *gp ) :
-    ConcreteDPM2Status( gp )
-{
-}
+CDPM2F2Status::CDPM2F2Status(GaussPoint *gp) :
+    ConcreteDPM2Status(gp)
+{}
 
 
 //   ********************************
@@ -63,72 +62,98 @@ CDPM2F2Status::CDPM2F2Status( GaussPoint *gp ) :
 
 #define IDM_ITERATION_LIMIT 1.e-8
 
-CDPM2F2::CDPM2F2( int n, Domain *d ) :
-    ConcreteDPM2( n, d )
-{
-}
+CDPM2F2::CDPM2F2(int n, Domain *d) :
+    ConcreteDPM2(n, d)
+{}
 
 
-void CDPM2F2::initializeFrom( InputRecord &ir )
+void CDPM2F2::initializeFrom(InputRecord &ir)
 {
     // call the corresponding service for the linear elastic material
-    ConcreteDPM2::initializeFrom( ir );
+    ConcreteDPM2::initializeFrom(ir);
 
     // Chao: your input
 
-    IR_GIVE_FIELD( ir, lf, _IFT_CDPM2F2_Lf );
-
-    IR_GIVE_FIELD( ir, vf, _IFT_CDPM2F2_Vf );
-
-    IR_GIVE_FIELD( ir, df, _IFT_CDPM2F2_Df );
-
-    IR_GIVE_FIELD( ir, ef, _IFT_CDPM2F2_Ef );
-
-    IR_GIVE_FIELD( ir, tau0, _IFT_CDPM2F2_Tau0 );
-
-    IR_GIVE_FIELD( ir, beta, _IFT_CDPM2F2_Beta );
-
-    IR_GIVE_FIELD( ir, f, _IFT_CDPM2F2_f );
-
-    IR_GIVE_FIELD( ir, sm, _IFT_CDPM2F2_Sm );
-
-    // 0-Bisectional method; 1-Newton method;
-    IR_GIVE_FIELD( ir, ctype, _IFT_CDPM2F2_convergenceType );
-
-    if ( ctype > 1 ) {
-        throw ValueInputException( ir, _IFT_CDPM2F2_convergenceType, "convergence type not implemented" );
+    IR_GIVE_FIELD(ir, lf, _IFT_CDPM2F2_Lf);
+    if(lf == 0){
+      OOFEM_ERROR("Lf is zero. No fibre contribution. Use CDPM2 instead.\n"); 
     }
 
-    double em;
-    IR_GIVE_FIELD( ir, em, _IFT_IsotropicLinearElasticMaterial_e );
+    IR_GIVE_FIELD(ir, vf, _IFT_CDPM2F2_Vf);
+    if(vf == 0){
+      OOFEM_ERROR("Vf is zero. No fibre contribution. Use CDPM2 instead.\n"); 
+    }
 
-    this->eta = this->ef * this->vf / ( em * ( 1. - this->vf ) );
+    IR_GIVE_FIELD(ir, df, _IFT_CDPM2F2_Df);
+    if(df == 0){
+      OOFEM_ERROR("df is zero. No fibre contribution. Use CDPM2 instead.\n"); 
+    }
 
-    this->g = 2. * ( 1. + exp( M_PI * this->f / 2. ) ) / ( 4. + this->f * this->f );
+    IR_GIVE_FIELD(ir, ef, _IFT_CDPM2F2_Ef);
+    if(ef == 0){
+      OOFEM_ERROR("Ef is zero. No fibre contribution. Use CDPM2 instead.\n"); 
+    }
 
-    this->s0 = 1. / 2. * g * this->tau0 * this->vf * ( 1. + this->eta ) * this->lf / this->df;
+    IR_GIVE_FIELD(ir, tau0, _IFT_CDPM2F2_Tau0);
 
-    this->omega = sqrt( 4. * ( 1. + this->eta ) * this->beta * this->tau0 / this->ef );
+    IR_GIVE_FIELD(ir, beta, _IFT_CDPM2F2_Beta);
 
-    this->k = this->omega * this->lf / ( 2. * this->df );
+    IR_GIVE_FIELD(ir, f, _IFT_CDPM2F2_f);
 
-    this->lamda = cosh( this->k ) - 1.0;
+    IR_GIVE_FIELD(ir, sm, _IFT_CDPM2F2_Sm);
 
-    this->deltaStar = ( 2. * this->df ) / beta * this->lamda;
+    // 0-Bisectional method; 1-Newton method;
+    this->ctype = 0;    
+    IR_GIVE_OPTIONAL_FIELD(ir, this->ctype, _IFT_CDPM2F2_iterType);
+    if ( this->ctype > 1 ) {
+        throw ValueInputException(ir, _IFT_CDPM2F2_iterType, "iteration type not implemented.");
+    }
 
-    this->c = this->beta * this->lf / ( 2. * this->df );
+    // 0-LinLi; 1-phenomenological;
+    this->bondType = 0;
+    IR_GIVE_OPTIONAL_FIELD(ir, this->bondType, _IFT_CDPM2F2_bondType);
+    if ( this->bondType > 1 ) {
+        throw ValueInputException(ir, _IFT_CDPM2F2_bondType, "bond type not implemented");
+    }
 
-    this->deltaCu = 0.5 * this->lf * ( this->c - 2. ) / ( 3. * this->c );
+    // 0-linear; 1-constant;
+    this->crackType = 0;
+    IR_GIVE_OPTIONAL_FIELD(ir, crackType, _IFT_CDPM2F2_crackType);
+    if ( this->crackType > 1 ) {
+        throw ValueInputException(ir, _IFT_CDPM2F2_crackType, "crack type not implemented");
+    }
 
-    // Todo: We need to find a way to check hardeningModulus Hp based on the fibre input and adjust it so that it is large enough to keep damage positive. Initial inclination is critical. We should then check here the value of Hp and adjust if necessary.
+
+    // @TODO: We need to find a way to check hardeningModulus Hp based on the fibre input and adjust it so that it is large enough to keep damage positive. Initial inclination is critical. We should then check here the value of Hp and adjust if necessary.
 }
 
 
 double
-CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double kappaTwo, double le, double omegaOld, double rateFactor ) const
+CDPM2F2::computeDamageParamTension(double equivStrain, double kappaOne, double kappaTwo, double le, double damageOld, double rateFactor) const
 {
-    double omega = 0.;
 
+      //Parameters calculated here for convinience
+    double eta = this->ef * this->vf / ( this->eM * ( 1. - this->vf ) );
+
+    double g = 2. * ( 1. + exp(M_PI * this->f / 2.) ) / ( 4. + this->f * this->f );
+
+    double s0 = 1. / 2. * g * this->tau0 * this->vf * ( 1. + eta ) * this->lf / this->df;
+
+    double omega = sqrt(4. * ( 1. + eta ) * this->beta * this->tau0 / this->ef); //not damage
+
+    double k = omega * this->lf / ( 2. * this->df );
+
+    double lambda = cosh(k) - 1.;
+
+    double deltaStar = ( 2. * this->df ) / beta * lambda;
+
+    double c = this->beta * this->lf / ( 2. * this->df );
+
+    double deltaCu = 0.5 * this->lf * ( c - 2. ) / ( 3. * c );
+
+
+  
+    double damage = 0.;
     double fibre    = 0.;
     double concrete = 0.;
 
@@ -140,8 +165,8 @@ CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double 
 
     if ( this->strengthRateType > 0 ) {
         if ( this->energyRateType == 0 ) {
-            wfMod /= pow( rateFactor, 2. );
-            wfOneMod /= pow( rateFactor, 2. );
+            wfMod /= pow(rateFactor, 2.);
+            wfOneMod /= pow(rateFactor, 2.);
         } else if ( this->energyRateType == 1 ) {
             wfMod /= rateFactor;
             wfOneMod /= rateFactor;
@@ -149,31 +174,32 @@ CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double 
     }
 
 
-    double D = 0., eCu = 0., eStar = 0., eUl = 0., residual = 0., a = 0., eCr = 0., delta = 0. ;
+    double D = 0., eCu = 0., eStar = 0., eUl = 0., residual = 0., a = 0., eCr = 0., delta = 0.;
     int nite = 0;
     if ( equivStrain > e0 * ( 1. - yieldTolDamage ) ) { // Check if damage should start
-        D   = this->sm * this->deltaCu / ( le - this->sm );
-        eCu = this->deltaCu / this->sm;
+        D   = this->sm * deltaCu / ( le - this->sm );
+        eCu = deltaCu / this->sm;
 
         //eStar = this->deltaStar / this->sm;
-         eStar = this->deltaStar*deltaCu / (le*deltaCu-deltaStar*(le-this->sm));//linear strain
+        eStar = deltaStar * deltaCu / ( le * deltaCu - deltaStar * ( le - this->sm ) );//linear strain
+
         // eStar =  ((deltaStar*deltaStar)*(le-sm)/(sm*deltaCu)+deltaStar)/le;
 
-        eUl = ( 0.5 * lf - this->deltaCu ) / le + this->deltaCu / this->sm;
+        eUl = ( 0.5 * lf - deltaCu ) / le + deltaCu / this->sm;
         double deltaStarS = deltaStar * 2. / lf;
-        double dd1        = 2. / k * ( ( 1 - 1 / k * acosh( 1 + lamda ) ) * sqrt( pow( ( 1 + lamda ), 2 ) - 1. ) + lamda / k ) * s0;
+        double dd1        = 2. / k * ( ( 1 - 1 / k * acosh(1 + lambda) ) * sqrt(pow( ( 1 + lambda ), 2 ) - 1.) + lambda / k ) * s0;
         double dd2        = ( 1. + beta * lf * deltaStarS / ( 2. * df ) ) * pow( ( 1 - deltaStarS ), 2 ) * s0;
         double dd         = ( dd2 - dd1 ) / s0;
-        double ddd1       = ( 1. / k * ( 1. - 1. / k * acosh( 1. + lamda ) ) * 2. * lamda * ( 1. + lamda ) / ( deltaStarS * sqrt( pow( ( 1. + lamda ), 2 ) - 1. ) ) ) * s0;
+        double ddd1       = ( 1. / k * ( 1. - 1. / k * acosh(1. + lambda) ) * 2. * lambda * ( 1. + lambda ) / ( deltaStarS * sqrt(pow( ( 1. + lambda ), 2 ) - 1.) ) ) * s0;
         double ddd2       = ( beta * lf / ( 2. * df ) * ( 1. - 3. * deltaStarS ) - 2. ) * ( 1. - deltaStarS ) * s0;
-        double bbb2       = ddd2*2./lf;
+        double bbb2       = ddd2 * 2. / lf;
         double ddd        = ( ddd2 - ddd1 ) / s0;
-        double aa         = 2. * ( ddd * deltaStarS - dd ) / pow( deltaStarS, 2 );
+        double aa         = 2. * ( ddd * deltaStarS - dd ) / pow(deltaStarS, 2);
         double b          = ddd - aa * deltaStarS;
-        double fibre_star = ( 2. / k * ( ( 1. - acosh( 1. + lamda * deltaStar / deltaStar ) / k ) * sqrt( pow( ( 1. + lamda * deltaStar / deltaStar ), 2. ) - 1. ) + ( lamda * deltaStar ) / ( k * deltaStar ) ) + ( aa * pow( ( deltaStar * 2. / lf ), 2 ) / 2. ) + ( b * deltaStar * 2. / lf ) ) * s0;
+        double fibre_star = ( 2. / k * ( ( 1. - acosh(1. + lambda * deltaStar / deltaStar) / k ) * sqrt(pow( ( 1. + lambda * deltaStar / deltaStar ), 2. ) - 1.) + ( lambda * deltaStar ) / ( k * deltaStar ) ) + ( aa * pow( ( deltaStar * 2. / lf ), 2 ) / 2. ) + ( b * deltaStar * 2. / lf ) ) * s0;
         double ddd0       =  fibre_star   / deltaStar;
 
-        omega    = 1.; // initial guess
+        damage    = 1.; // initial guess
         residual = 0.;
         a        = 0.;
         nite     = 0;
@@ -181,27 +207,23 @@ CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double 
             do {
                 nite++;
                 if ( nite == 10000 ) {
-                    OOFEM_ERROR( "In computeDamageTension: bisection method not converged" );
+                    OOFEM_ERROR("In computeDamageTension: bisection method not converged");
                 }
 
-                eCr   = kappaOne + omega * kappaTwo;
+                eCr   = kappaOne + damage * kappaTwo;
                 delta = 0.;
                 if ( eCr > 0 && eCr <= eCu ) {
                     // delta = sqrt( le * eCr * D + D * D / 4. ) - D / 2.;
                     //delta = eCr * sm;
-                     delta = eCr*le/(((le-sm)/deltaCu)*eCr+1.);
+                    delta = eCr * le / ( ( ( le - sm ) / deltaCu ) * eCr + 1. );
                 } else if ( eCr > eCu && eCr <= eUl ) {
                     delta = le * ( eCr - deltaCu / sm ) + deltaCu;
                 }
 
 
-
-                // Chao: I have put initialisation to start of function
-                //  double fibre = 0.;
-
                 if ( eCr > 0 && eCr <= eStar ) {
-                     fibre = ( 2. / k * ( ( 1. - acosh( 1. + lamda * delta / deltaStar ) / k ) * sqrt( pow( ( 1. + lamda * delta / deltaStar ), 2. ) - 1. ) + ( lamda * delta ) / ( k * deltaStar ) ) + ( aa * pow( ( delta * 2. / lf ), 2 ) / 2. ) + ( b * delta * 2. / lf ) ) * s0;
-                     //fibre = fibre_star*delta/deltaStar+(bbb2-ddd0)* pow(delta,2)/deltaStar+(ddd0-bbb2)*delta;
+                    fibre = ( 2. / k * ( ( 1. - acosh(1. + lambda * delta / deltaStar) / k ) * sqrt(pow( ( 1. + lambda * delta / deltaStar ), 2. ) - 1.) + ( lambda * delta ) / ( k * deltaStar ) ) + ( aa * pow( ( delta * 2. / lf ), 2 ) / 2. ) + ( b * delta * 2. / lf ) ) * s0;
+                    //fibre = fibre_star*delta/deltaStar+(bbb2-ddd0)* pow(delta,2)/deltaStar+(ddd0-bbb2)*delta;
                 } else if ( eCr > eStar && eCr <= eUl ) {
                     fibre = ( 1. + beta * delta / df ) * ( pow( ( 1. - 2. * delta / lf ), 2. ) ) * s0;
                 } else if ( eCr > eUl || eCr <= 0 ) {
@@ -213,51 +235,44 @@ CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double 
                 } else if ( this->softeningType == 1 ) {
                     // Todo: Implement the bilinear law
                 } else if ( this->softeningType == 2 ) {
-                    concrete = ( 1 - vf ) * ftTemp * exp( -delta / wfMod );
+                    concrete = ( 1 - vf ) * ftTemp * exp(-delta / wfMod);
                 }
 
-                residual = ( 1. - omega ) * this->eM * equivStrain - fibre -concrete;
-                // printf("omega = %e, residual = %e, fibre = %e, concrete = %e\n",omega, residual, fibre, concrete);
+                residual = ( 1. - damage ) * this->eM * equivStrain - fibre - concrete;
+                // printf("damage = %e, residual = %e, fibre = %e, concrete = %e\n",damage, residual, fibre, concrete);
 
                 if ( residual < 0 ) {
-                    omega = ( omega + a ) / 2.;
+                    damage = ( damage + a ) / 2.;
                 } else if ( residual > 0 ) {
-                    double c = omega * 2. - a;
-                    a        = omega;
-                    omega    = ( c + a ) / 2.;
+                    double c = damage * 2. - a;
+                    a        = damage;
+                    damage    = ( c + a ) / 2.;
                 }
-            } while ( fabs( residual / this->ft ) > 0.000001 );
+            } while ( fabs(residual / this->ft) > 0.000001 );
         } else if ( ctype == 1 ) {
             do {
                 nite++;
                 int newtonIte = 10000;
                 if ( nite > newtonIte ) {
-                    OOFEM_ERROR( "algorithm not converging" );
+                    OOFEM_ERROR("algorithm not converging");
                 }
-                eCr                    = kappaOne + omega * kappaTwo;
+                eCr                    = kappaOne + damage * kappaTwo;
                 double Ddelta          = 0.;
-                double dResidualDOmega = 0.;
+                double dResidualDDamage = 0.;
                 double dfibre          = 0.;
                 double dconcrte        = 0.;
 
                 if ( eCr > 0 && eCr <= eCu ) {
-                    // delta = sqrt( le * eCr * D + D * D / 4. ) - D / 2.;
-                    // delta = eCr * sm;
-                    delta = eCr * le / ( ( le - sm ) / deltaCu * eCr + 1 );
-                    // Ddelta = sm;
-                    Ddelta = le / pow( ( ( le - sm ) * eCr / deltaCu + 1 ), 2 );
+		  delta = eCr * le / ( ( le - sm ) / deltaCu * eCr + 1 );
+		  Ddelta = le / pow( ( ( le - sm ) * eCr / deltaCu + 1 ), 2 );
                 } else if ( eCr > eCu && eCr <= eUl ) {
-                    delta  = le * ( eCr - deltaCu / sm ) + deltaCu;
-                    Ddelta = le;
+		  delta  = le * ( eCr - deltaCu / sm ) + deltaCu;
+		  Ddelta = le;
                 }
 
-                // Chao: I have put initialisation to start of function
-                //  double fibre = 0.;
                 if ( eCr > 0 && eCr <= eStar ) {
-                     fibre = (2. / k * ( ( 1. - acosh( 1. + lamda * delta / deltaStar ) / k ) * sqrt( pow( ( 1. + lamda * delta / deltaStar ), 2. ) - 1. ) + ( lamda * delta ) / ( k * deltaStar ) ) + ( aa * pow( ( delta * 2. / lf ), 2 ) / 2. ) + ( b * delta * 2. / lf ))*s0;
-                     dfibre = ( s0*(1./k*(1.-1/k* acosh(1+lamda*delta/deltaStar))*2.*lamda*(1+lamda*delta/deltaStar)/(deltaStar* sqrt( pow((1.+lamda*delta/deltaStar),2)-1.))+aa*2.*delta/lf+b))*2./lf*Ddelta*kappaTwo;
-                    //fibre  = fibre_star * delta / deltaStar + ( bbb2 - ddd0 ) * pow( delta, 2 ) / deltaStar + ( ddd0 - bbb2 ) * delta;
-                    //dfibre = ( fibre_star / deltaStar + 2 * ( bbb2 - ddd0 ) * delta / deltaStar + ( ddd0 - bbb2 ) ) * Ddelta * kappaTwo;
+                    fibre = ( 2. / k * ( ( 1. - acosh(1. + lambda * delta / deltaStar) / k ) * sqrt(pow( ( 1. + lambda * delta / deltaStar ), 2. ) - 1.) + ( lambda * delta ) / ( k * deltaStar ) ) + ( aa * pow( ( delta * 2. / lf ), 2 ) / 2. ) + ( b * delta * 2. / lf ) ) * s0;
+                    dfibre = ( s0 * ( 1. / k * ( 1. - 1 / k * acosh(1 + lambda * delta / deltaStar) ) * 2. * lambda * ( 1 + lambda * delta / deltaStar ) / ( deltaStar * sqrt(pow( ( 1. + lambda * delta / deltaStar ), 2 ) - 1.) ) + aa * 2. * delta / lf + b ) ) * 2. / lf * Ddelta * kappaTwo;
                 } else if ( eCr > eStar && eCr <= eUl ) {
                     fibre  = ( 1. + beta * delta / df ) * ( pow( ( 1. - 2. * delta / lf ), 2. ) ) * s0;
                     dfibre = ( beta * lf / ( 2. * df ) * ( 1. - 6. * delta / lf ) - 2. ) * ( 1. - 2. * delta / lf ) * s0 * 2. / lf * Ddelta * kappaTwo;
@@ -270,32 +285,33 @@ CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double 
                 } else if ( this->softeningType == 1 ) {
                     // Todo: Implement the bilinear law
                 } else if ( this->softeningType == 2 ) {
-                    concrete = ( 1 - vf ) * ftTemp * exp( -delta / wfMod );
-                    dconcrte = -ftTemp * Ddelta * kappaTwo / wfMod * ( 1 - vf ) * exp( -delta / wfMod );
+                    concrete = ( 1 - vf ) * ftTemp * exp(-delta / wfMod);
+                    dconcrte = -ftTemp * Ddelta * kappaTwo / wfMod * ( 1 - vf ) * exp(-delta / wfMod);
                 }
-                residual        = ( 1. - omega ) * this->eM * equivStrain - fibre - concrete;
-                dResidualDOmega = -this->eM * equivStrain - dfibre - dconcrte;
-                omega -= residual / dResidualDOmega;
-                //printf("omega=%e,residual=%e\n,",omega,residual);
-            } while ( fabs( residual / this->ft ) >= 1.e-8 );
+                residual        = ( 1. - damage ) * this->eM * equivStrain - fibre - concrete;
+                dResidualDDamage = -this->eM * equivStrain - dfibre - dconcrte;
+                damage -= residual / dResidualDDamage;
+                //printf("damage=%e,residual=%e\n,",damage,residual);
+            } while ( fabs(residual / this->ft) >= 1.e-8 );
             //printf("\n");
         }
+    }   else {
+        damage = 0.;
     }
-        else {
-            omega = 0.;
-        }
 
 
-        if ( omega > 1. ) {
-            omega = 1.;
-        }
-
-        if ( omega < 0. || omega < omegaOld ) {
-            omega = omegaOld;
-        }
-
-        return omega;
+    if ( damage > 1. ) {
+        damage = 1.;
     }
+
+    if ( damage < 0. || damage < damageOld ) {
+        damage = damageOld;
+    }
+
+    printf("concrete = %e and fibre = %e\n", concrete, fibre);
+    
+    return damage;
+}
 
 // end of namespace
 }

@@ -55,7 +55,10 @@
 #define _IFT_CDPM2F2_f "f"
 #define _IFT_CDPM2F2_Ef "ef"
 #define _IFT_CDPM2F2_Sm "sm"
-#define _IFT_CDPM2F2_convergenceType "ctype"
+#define _IFT_CDPM2F2_iterType "ctype"
+#define _IFT_CDPM2F2_crackType "cracktype"
+#define _IFT_CDPM2F2_bondType "bondtype"
+
 //@}
 
 namespace oofem {
@@ -68,7 +71,6 @@ class CDPM2F2Status : public ConcreteDPM2Status
 public:
     /// Constructor
     CDPM2F2Status(GaussPoint *gp);
-
 };
 
 
@@ -77,7 +79,7 @@ public:
 //   ********************************
 
 /**
- * Info about the model
+ * CDPM2F is an extension of CDPM2 to strain hardening. It uses the fibre model in "Lin and Li (1997): Crack bridging in fibre reinforced cementitious composites with slip-hardening interfaces, Journal of the Mechanics and Physics of Solids, Vol. 45, No. 5, pp. 763-787. The stress-displacement relation is transformed into a stress-strain response by phenomenologically introducing a law for the evolution of the crack spacing. The resulting stress-cracking strain relation is then incorporated into CDPM2 by adjusting the tensile damage evolution.
  *
  * @author Chao Zhou, Peter Grassl
  */
@@ -87,27 +89,37 @@ public:
 
 protected:
 
-    //Chao: These are the varialbes that you had in cdpm2f
+  //Input parameters
+  ///length of fibre
+    double lf = 0.;
+  ///volume of fibre
+    double vf = 0.;
+  ///diameter of fibre
+    double df = 0.;
+  ///Young's modulus of fibre
+    double ef = 0.;
+  ///shear strength of fibre matrix interface
+    double tau0 = 0.;
+  ///hardening parameter of fibre matrix interface
+    double beta = 0.;
+  ///snabbing factor
+    double f = 0.;
+  ///crack spacing
+   double sm = 0.;
+  /// type of iterative approach to calulate damage varialble
+  /// 0 = bisection method, 1-Newton method 
+  int ctype = 0;
+  /// type of debonding relationship
+  /// 0 = debonding according to Lin and Li (with small adjustments to achieve smooth transition)
+  /// 1 = phenomenological debonding to avoid issues with hardening
+  int bondType = 0;
 
-    double lf=0.;
-    double vf=0.;
-    double df=0.;
-    double ef=0.;
-    double tau0=0.;
-    double beta=0.;
-    double f=0.;
-    double eta=0.;
-    double g=0.;
-    double s0=0.;
-    double omega=0.;
-    double k=0.;
-    double lamda=0.;
-    double deltaStar=0.;
-    double c=0.;
-    double deltaCu=0.;
-    double sm=0.;
-    int ctype=0;
-    
+  ///type of cracking strain assumption
+  /// 0 = linear law
+  /// 1 = constant
+  int crackType = 0;
+  
+
 public:
     /// Constructor
     CDPM2F2(int n, Domain *d);
@@ -119,7 +131,6 @@ public:
 
     /// Compute damage parameter in tension.
     virtual double computeDamageParamTension(double equivStrain, double kappaOne, double kappaTwo, double le, double omegaOld, double rateFactor) const;
-
 };
 } //end namespace oofem
 #endif
