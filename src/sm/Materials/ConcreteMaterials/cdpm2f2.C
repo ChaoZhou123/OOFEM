@@ -308,8 +308,6 @@ CDPM2F2::computeDamageParamTension(double equivStrain, double kappaOne, double k
         damage = damageOld;
     }
 
-    printf("concrete = %e and fibre = %e\n", concrete, fibre);
-    
     return damage;
 }
 
