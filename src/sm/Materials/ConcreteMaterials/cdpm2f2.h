@@ -56,6 +56,8 @@
 #define _IFT_CDPM2F2_Ef "ef"
 #define _IFT_CDPM2F2_Sm "sm"
 #define _IFT_CDPM2F2_convergenceType "ctype"
+#define _IFT_CDPM2F2_deltarelation "drelation"
+#define _IFT_CDPM2F2_fibredebondingtype "fdtype"
 //@}
 
 namespace oofem {
@@ -107,6 +109,8 @@ protected:
     double deltaCu=0.;
     double sm=0.;
     int ctype=0;
+    int drelation=1;
+    int fdtype=0;
     
 public:
     /// Constructor

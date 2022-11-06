@@ -99,6 +99,19 @@ void CDPM2F2::initializeFrom( InputRecord &ir )
         throw ValueInputException( ir, _IFT_CDPM2F2_convergenceType, "convergence type not implemented" );
     }
 
+    //0-constant relation; 1-linear relation; 2-sigmoid relation;
+    IR_GIVE_FIELD( ir, drelation, _IFT_CDPM2F2_deltarelation );
+
+    if ( drelation > 2 ) {
+        throw ValueInputException( ir, _IFT_CDPM2F2_deltarelation, "delta relation not implemented" );
+    }
+
+
+    IR_GIVE_FIELD( ir, fdtype, _IFT_CDPM2F2_fibredebondingtype );
+
+    if ( fdtype> 1 ) {
+        throw ValueInputException( ir, _IFT_CDPM2F2_fibredebondingtype, "fibre debonding type not implemented" );
+    }
     double em;
     IR_GIVE_FIELD( ir, em, _IFT_IsotropicLinearElasticMaterial_e );
 
@@ -154,10 +167,19 @@ CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double 
     if ( equivStrain > e0 * ( 1. - yieldTolDamage ) ) { // Check if damage should start
         D   = this->sm * this->deltaCu / ( le - this->sm );
         eCu = this->deltaCu / this->sm;
+        if (drelation==0){
+            eStar = this->deltaStar / this->sm;
+        }
 
+        if (drelation==1){
+            eStar = this->deltaStar*deltaCu / (le*deltaCu-deltaStar*(le-this->sm));
+        }
         //eStar = this->deltaStar / this->sm;
-         eStar = this->deltaStar*deltaCu / (le*deltaCu-deltaStar*(le-this->sm));//linear strain
+         //eStar = this->deltaStar*deltaCu / (le*deltaCu-deltaStar*(le-this->sm));//linear strain
         // eStar =  ((deltaStar*deltaStar)*(le-sm)/(sm*deltaCu)+deltaStar)/le;
+        if (drelation==2){
+            eStar = -0.1*eCu*log(1-deltaStar/deltaCu*(1- exp(-10.)));
+        }
 
         eUl = ( 0.5 * lf - this->deltaCu ) / le + this->deltaCu / this->sm;
         double deltaStarS = deltaStar * 2. / lf;
@@ -188,8 +210,16 @@ CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double 
                 delta = 0.;
                 if ( eCr > 0 && eCr <= eCu ) {
                     // delta = sqrt( le * eCr * D + D * D / 4. ) - D / 2.;
-                    //delta = eCr * sm;
-                     delta = eCr*le/(((le-sm)/deltaCu)*eCr+1.);
+                    if (drelation==0){
+                        delta = eCr * sm;//constant delta relation
+                    }
+                    if (drelation==1){
+                        delta = eCr*le/(((le-sm)/deltaCu)*eCr+1.);//linear delta relation
+                    }
+                    if (drelation==2){
+                        delta = deltaCu*(1-exp(-eCr/(0.1*eCu)))/(1-exp(-eCu/(0.1*eCu)));//sigmoid delta relation
+                    }
+
                 } else if ( eCr > eCu && eCr <= eUl ) {
                     delta = le * ( eCr - deltaCu / sm ) + deltaCu;
                 }
@@ -200,8 +230,13 @@ CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double 
                 //  double fibre = 0.;
 
                 if ( eCr > 0 && eCr <= eStar ) {
-                     fibre = ( 2. / k * ( ( 1. - acosh( 1. + lamda * delta / deltaStar ) / k ) * sqrt( pow( ( 1. + lamda * delta / deltaStar ), 2. ) - 1. ) + ( lamda * delta ) / ( k * deltaStar ) ) + ( aa * pow( ( delta * 2. / lf ), 2 ) / 2. ) + ( b * delta * 2. / lf ) ) * s0;
-                     //fibre = fibre_star*delta/deltaStar+(bbb2-ddd0)* pow(delta,2)/deltaStar+(ddd0-bbb2)*delta;
+                    if (fdtype==0){
+                        fibre = ( 2. / k * ( ( 1. - acosh( 1. + lamda * delta / deltaStar ) / k ) * sqrt( pow( ( 1. + lamda * delta / deltaStar ), 2. ) - 1. ) + ( lamda * delta ) / ( k * deltaStar ) ) + ( aa * pow( ( delta * 2. / lf ), 2 ) / 2. ) + ( b * delta * 2. / lf ) ) * s0;
+                    }
+                    if (fdtype==1){
+                        fibre = fibre_star*delta/deltaStar+(bbb2-ddd0)* pow(delta,2)/deltaStar+(ddd0-bbb2)*delta;
+                    }
+
                 } else if ( eCr > eStar && eCr <= eUl ) {
                     fibre = ( 1. + beta * delta / df ) * ( pow( ( 1. - 2. * delta / lf ), 2. ) ) * s0;
                 } else if ( eCr > eUl || eCr <= 0 ) {
@@ -243,9 +278,18 @@ CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double 
                 if ( eCr > 0 && eCr <= eCu ) {
                     // delta = sqrt( le * eCr * D + D * D / 4. ) - D / 2.;
                     // delta = eCr * sm;
-                    delta = eCr * le / ( ( le - sm ) / deltaCu * eCr + 1 );
-                    // Ddelta = sm;
-                    Ddelta = le / pow( ( ( le - sm ) * eCr / deltaCu + 1 ), 2 );
+                    if (drelation==0){
+                        delta = eCr * sm;//constant delta relation
+                        Ddelta = sm;
+                    }
+                    if (drelation==1){
+                        delta = eCr*le/(((le-sm)/deltaCu)*eCr+1.);//linear delta relation
+                        Ddelta = le / pow( ( ( le - sm ) * eCr / deltaCu + 1 ), 2 );
+                    }
+                    if (drelation==2){
+                        delta = deltaCu*(1-exp(-eCr/(0.1*eCu)))/(1-exp(-eCu/(0.1*eCu)));//sigmoid delta relation
+                    }
+
                 } else if ( eCr > eCu && eCr <= eUl ) {
                     delta  = le * ( eCr - deltaCu / sm ) + deltaCu;
                     Ddelta = le;
@@ -254,10 +298,15 @@ CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double 
                 // Chao: I have put initialisation to start of function
                 //  double fibre = 0.;
                 if ( eCr > 0 && eCr <= eStar ) {
-                     fibre = (2. / k * ( ( 1. - acosh( 1. + lamda * delta / deltaStar ) / k ) * sqrt( pow( ( 1. + lamda * delta / deltaStar ), 2. ) - 1. ) + ( lamda * delta ) / ( k * deltaStar ) ) + ( aa * pow( ( delta * 2. / lf ), 2 ) / 2. ) + ( b * delta * 2. / lf ))*s0;
-                     dfibre = ( s0*(1./k*(1.-1/k* acosh(1+lamda*delta/deltaStar))*2.*lamda*(1+lamda*delta/deltaStar)/(deltaStar* sqrt( pow((1.+lamda*delta/deltaStar),2)-1.))+aa*2.*delta/lf+b))*2./lf*Ddelta*kappaTwo;
-                    //fibre  = fibre_star * delta / deltaStar + ( bbb2 - ddd0 ) * pow( delta, 2 ) / deltaStar + ( ddd0 - bbb2 ) * delta;
-                    //dfibre = ( fibre_star / deltaStar + 2 * ( bbb2 - ddd0 ) * delta / deltaStar + ( ddd0 - bbb2 ) ) * Ddelta * kappaTwo;
+                    if (fdtype==0){
+                        fibre = ( 2. / k * ( ( 1. - acosh( 1. + lamda * delta / deltaStar ) / k ) * sqrt( pow( ( 1. + lamda * delta / deltaStar ), 2. ) - 1. ) + ( lamda * delta ) / ( k * deltaStar ) ) + ( aa * pow( ( delta * 2. / lf ), 2 ) / 2. ) + ( b * delta * 2. / lf ) ) * s0;
+                        dfibre = ( s0*(1./k*(1.-1/k* acosh(1+lamda*delta/deltaStar))*2.*lamda*(1+lamda*delta/deltaStar)/(deltaStar* sqrt( pow((1.+lamda*delta/deltaStar),2)-1.))+aa*2.*delta/lf+b))*2./lf*Ddelta*kappaTwo;
+                    }
+                    if (fdtype==1){
+                        fibre = fibre_star*delta/deltaStar+(bbb2-ddd0)* pow(delta,2)/deltaStar+(ddd0-bbb2)*delta;
+                        dfibre = ( fibre_star / deltaStar + 2 * ( bbb2 - ddd0 ) * delta / deltaStar + ( ddd0 - bbb2 ) ) * Ddelta * kappaTwo;
+                    }
+
                 } else if ( eCr > eStar && eCr <= eUl ) {
                     fibre  = ( 1. + beta * delta / df ) * ( pow( ( 1. - 2. * delta / lf ), 2. ) ) * s0;
                     dfibre = ( beta * lf / ( 2. * df ) * ( 1. - 6. * delta / lf ) - 2. ) * ( 1. - 2. * delta / lf ) * s0 * 2. / lf * Ddelta * kappaTwo;
