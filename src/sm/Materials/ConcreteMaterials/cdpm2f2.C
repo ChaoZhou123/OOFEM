@@ -78,7 +78,7 @@ void CDPM2F2::initializeFrom( InputRecord &ir )
 
     IR_GIVE_FIELD( ir, lf, _IFT_CDPM2F2_Lf );
 
-    IR_GIVE_FIELD( ir, vf, _IFT_CDPM2F2_Vf );
+    IR_GIVE_FIELD( ir, vf0, _IFT_CDPM2F2_Vf0 );
 
     IR_GIVE_FIELD( ir, df, _IFT_CDPM2F2_Df );
 
@@ -91,6 +91,8 @@ void CDPM2F2::initializeFrom( InputRecord &ir )
     IR_GIVE_FIELD( ir, f, _IFT_CDPM2F2_f );
 
     IR_GIVE_FIELD( ir, sm, _IFT_CDPM2F2_Sm );
+
+    IR_GIVE_FIELD( ir, alpha, _IFT_CDPM2F2_Alpha );
 
     // 0-Bisectional method; 1-Newton method;
     IR_GIVE_FIELD( ir, ctype, _IFT_CDPM2F2_convergenceType );
@@ -115,6 +117,11 @@ void CDPM2F2::initializeFrom( InputRecord &ir )
     double em;
     IR_GIVE_FIELD( ir, em, _IFT_IsotropicLinearElasticMaterial_e );
 
+    this->vf = (1. + log(alpha))*this->vf0 ;
+    //this->vf = vf0;
+
+
+
     this->eta = this->ef * this->vf / ( em * ( 1. - this->vf ) );
 
     this->g = 2. * ( 1. + exp( M_PI * this->f / 2. ) ) / ( 4. + this->f * this->f );
@@ -131,7 +138,33 @@ void CDPM2F2::initializeFrom( InputRecord &ir )
 
     this->c = this->beta * this->lf / ( 2. * this->df );
 
-    this->deltaCu = 0.5 * this->lf * ( this->c - 2. ) / ( 3. * this->c );
+    this->deltaCu = (0.5 * this->lf * ( this->c - 2. ) / ( 3. * this->c ));
+
+    double ftTemp = this->ft * ( 1. - yieldTolDamage );
+
+    this->z=ftTemp/( 0.5*g*tau0*lf/df*(( 1. + beta * deltaCu / df ) * ( pow( ( 1. - 2. * deltaCu / lf ), 2. ) )));
+
+    this->vfm =(sqrt( pow(em,2)* pow((1+z),2)+4.*(ef-em)*em*z)-em*(1+z))/(2*(ef-em));
+
+    this->alphamin = exp((vfm-vf0)/vf0);
+
+    if ( alpha < alphamin ) {
+        OOFEM_ERROR( "alpha should be larger than alphamin %e\n",alphamin);
+        printf("alphamin= %e\n",alphamin);
+    }
+
+
+
+
+
+
+
+
+
+
+    //another parameter implemented.///////////////////////////////////////////////////////////////////////////////////////////
+
+
 
     // Todo: We need to find a way to check hardeningModulus Hp based on the fibre input and adjust it so that it is large enough to keep damage positive. Initial inclination is critical. We should then check here the value of Hp and adjust if necessary.
 }
@@ -140,6 +173,8 @@ void CDPM2F2::initializeFrom( InputRecord &ir )
 double
 CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double kappaTwo, double le, double omegaOld, double rateFactor ) const
 {
+
+
     double omega = 0.;
 
     double fibre    = 0.;
@@ -150,6 +185,7 @@ CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double 
 
     double wfMod    = this->wf;
     double wfOneMod = this->wfOne;
+
 
     if ( this->strengthRateType > 0 ) {
         if ( this->energyRateType == 0 ) {
@@ -162,26 +198,32 @@ CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double 
     }
 
 
-    double D = 0., eCu = 0., eStar = 0., eUl = 0., residual = 0., a = 0., eCr = 0., delta = 0. ;
+    double eCu = 0., eStar = 0., eUl = 0., residual = 0.,a = 0., eCr = 0.00, delta = 0., e0= 0., gammac=0. ;
+
+
+
+    e0 = kappaOne + ftTemp/ eM ;
+    gammac = (1 - alpha)*e0*sm/(deltaCu*(1-alphamin))+((alpha-alphamin)/(1-alphamin));
+    //double gammad = gammac;
+    eCu = this->deltaCu*gammac / this->sm;
+    double gammad = gammac+(1-gammac)*(eCu-eCr)/eCu;
     int nite = 0;
     if ( equivStrain > e0 * ( 1. - yieldTolDamage ) ) { // Check if damage should start
-        D   = this->sm * this->deltaCu / ( le - this->sm );
-        eCu = this->deltaCu / this->sm;
         if (drelation==0){
-            eStar = this->deltaStar / this->sm;
+            eStar = this->deltaStar*gammad / this->sm;
         }
 
         if (drelation==1){
-            eStar = this->deltaStar*deltaCu / (le*deltaCu-deltaStar*(le-this->sm));
+            eStar = this->deltaStar*gammad*deltaCu*gammad / (le*deltaCu*gammad-deltaStar*(le-this->sm));
         }
         //eStar = this->deltaStar / this->sm;
          //eStar = this->deltaStar*deltaCu / (le*deltaCu-deltaStar*(le-this->sm));//linear strain
         // eStar =  ((deltaStar*deltaStar)*(le-sm)/(sm*deltaCu)+deltaStar)/le;
         if (drelation==2){
-            eStar = -0.1*eCu*log(1-deltaStar/deltaCu*(1- exp(-10.)));
+            eStar = -0.1*eCu*log(1-deltaStar*gammad/(deltaCu*gammad)*(1- exp(-10.)));
         }
 
-        eUl = ( 0.5 * lf - this->deltaCu ) / le + this->deltaCu / this->sm;
+        eUl = ( 0.5 * lf - this->deltaCu*gammad ) / le + this->deltaCu *gammad/ this->sm;
         double deltaStarS = deltaStar * 2. / lf;
         double dd1        = 2. / k * ( ( 1 - 1 / k * acosh( 1 + lamda ) ) * sqrt( pow( ( 1 + lamda ), 2 ) - 1. ) + lamda / k ) * s0;
         double dd2        = ( 1. + beta * lf * deltaStarS / ( 2. * df ) ) * pow( ( 1 - deltaStarS ), 2 ) * s0;
@@ -194,6 +236,7 @@ CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double 
         double b          = ddd - aa * deltaStarS;
         double fibre_star = ( 2. / k * ( ( 1. - acosh( 1. + lamda * deltaStar / deltaStar ) / k ) * sqrt( pow( ( 1. + lamda * deltaStar / deltaStar ), 2. ) - 1. ) + ( lamda * deltaStar ) / ( k * deltaStar ) ) + ( aa * pow( ( deltaStar * 2. / lf ), 2 ) / 2. ) + ( b * deltaStar * 2. / lf ) ) * s0;
         double ddd0       =  fibre_star   / deltaStar;
+     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         omega    = 1.; // initial guess
         residual = 0.;
@@ -202,26 +245,26 @@ CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double 
         if ( ctype == 0 ) {
             do {
                 nite++;
-                if ( nite == 10000 ) {
+                if ( nite == 100000 ) {
                     OOFEM_ERROR( "In computeDamageTension: bisection method not converged" );
                 }
 
                 eCr   = kappaOne + omega * kappaTwo;
                 delta = 0.;
-                if ( eCr > 0 && eCr <= eCu ) {
+                if ( eCr >= 0 && eCr<=eCu) {
                     // delta = sqrt( le * eCr * D + D * D / 4. ) - D / 2.;
                     if (drelation==0){
-                        delta = eCr * sm;//constant delta relation
+                        delta = (eCr * sm)/gammad;//constant delta relation
                     }
                     if (drelation==1){
-                        delta = eCr*le/(((le-sm)/deltaCu)*eCr+1.);//linear delta relation
+                        delta = eCr*le/((le-sm)/(deltaCu*gammad)*eCr+1.)/gammad;//linear delta relation
                     }
                     if (drelation==2){
-                        delta = deltaCu*(1-exp(-eCr/(0.1*eCu)))/(1-exp(-eCu/(0.1*eCu)));//sigmoid delta relation
+                        delta = deltaCu*(1-exp(-eCr/(0.1*eCu)))/(1-exp(-(eCu)/(0.1*eCu)));//sigmoid delta relation
                     }
 
-                } else if ( eCr > eCu && eCr <= eUl ) {
-                    delta = le * ( eCr - deltaCu / sm ) + deltaCu;
+                } else if ( eCr>eCu&& eCr<=eUl ) {
+                       delta = le * ( eCr - eCu ) + deltaCu;
                 }
 
 
@@ -229,7 +272,7 @@ CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double 
                 // Chao: I have put initialisation to start of function
                 //  double fibre = 0.;
 
-                if ( eCr > 0 && eCr <= eStar ) {
+                if ( eCr>= 0 && eCr <= eStar) {
                     if (fdtype==0){
                         fibre = ( 2. / k * ( ( 1. - acosh( 1. + lamda * delta / deltaStar ) / k ) * sqrt( pow( ( 1. + lamda * delta / deltaStar ), 2. ) - 1. ) + ( lamda * delta ) / ( k * deltaStar ) ) + ( aa * pow( ( delta * 2. / lf ), 2 ) / 2. ) + ( b * delta * 2. / lf ) ) * s0;
                     }
@@ -239,7 +282,7 @@ CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double 
 
                 } else if ( eCr > eStar && eCr <= eUl ) {
                     fibre = ( 1. + beta * delta / df ) * ( pow( ( 1. - 2. * delta / lf ), 2. ) ) * s0;
-                } else if ( eCr > eUl || eCr <= 0 ) {
+                } else if ( eCr>eUl|| eCr < 0 ) {
                     fibre = 0;
                 }
 
@@ -251,7 +294,7 @@ CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double 
                     concrete = ( 1 - vf ) * ftTemp * exp( -delta / wfMod );
                 }
 
-                residual = ( 1. - omega ) * this->eM * equivStrain - fibre -concrete;
+                residual = ( 1. - omega ) * this->eM * equivStrain - fibre - concrete;
                 // printf("omega = %e, residual = %e, fibre = %e, concrete = %e\n",omega, residual, fibre, concrete);
 
                 if ( residual < 0 ) {
@@ -262,7 +305,9 @@ CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double 
                     omega    = ( c + a ) / 2.;
                 }
             } while ( fabs( residual / this->ft ) > 0.000001 );
-        } else if ( ctype == 1 ) {
+
+        }
+        else if ( ctype == 1 ) {
             do {
                 nite++;
                 int newtonIte = 10000;
@@ -275,7 +320,7 @@ CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double 
                 double dfibre          = 0.;
                 double dconcrte        = 0.;
 
-                if ( eCr > 0 && eCr <= eCu ) {
+                if ( eCr > 0 && eCr < eCu ) {
                     // delta = sqrt( le * eCr * D + D * D / 4. ) - D / 2.;
                     // delta = eCr * sm;
                     if (drelation==0){
@@ -290,8 +335,8 @@ CDPM2F2::computeDamageParamTension( double equivStrain, double kappaOne, double 
                         delta = deltaCu*(1-exp(-eCr/(0.1*eCu)))/(1-exp(-eCu/(0.1*eCu)));//sigmoid delta relation
                     }
 
-                } else if ( eCr > eCu && eCr <= eUl ) {
-                    delta  = le * ( eCr - deltaCu / sm ) + deltaCu;
+                } else if ( eCr >= eCu && eCr <= eUl ) {
+                    delta  = le * ( eCr - eCu ) + deltaCu/alpha;
                     Ddelta = le;
                 }
 

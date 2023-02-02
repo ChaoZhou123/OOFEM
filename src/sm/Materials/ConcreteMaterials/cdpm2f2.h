@@ -48,13 +48,14 @@
 
 #define _IFT_CDPM2F2_Name "cdpm2f2"
 #define _IFT_CDPM2F2_Lf "lf"
-#define _IFT_CDPM2F2_Vf "vf"
+#define _IFT_CDPM2F2_Vf0 "vf0"
 #define _IFT_CDPM2F2_Df "df"
 #define _IFT_CDPM2F2_Tau0 "tau0"
 #define _IFT_CDPM2F2_Beta "beta"
 #define _IFT_CDPM2F2_f "f"
 #define _IFT_CDPM2F2_Ef "ef"
 #define _IFT_CDPM2F2_Sm "sm"
+#define _IFT_CDPM2F2_Alpha "alpha"
 #define _IFT_CDPM2F2_convergenceType "ctype"
 #define _IFT_CDPM2F2_deltarelation "drelation"
 #define _IFT_CDPM2F2_fibredebondingtype "fdtype"
@@ -92,7 +93,10 @@ protected:
     //Chao: These are the varialbes that you had in cdpm2f
 
     double lf=0.;
+    double vf0=0.;
     double vf=0.;
+    double vfm=0.;
+    double z=0.;
     double df=0.;
     double ef=0.;
     double tau0=0.;
@@ -108,10 +112,11 @@ protected:
     double c=0.;
     double deltaCu=0.;
     double sm=0.;
+    double alpha=0. ;
+    double alphamin=0.;
     int ctype=0;
     int drelation=1;
     int fdtype=0;
-    
 public:
     /// Constructor
     CDPM2F2(int n, Domain *d);
