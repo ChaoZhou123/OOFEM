@@ -51,6 +51,10 @@
 //@{
 #define _IFT_StructuralMaterial_referencetemperature "referencetemperature"
 #define _IFT_StructuralMaterial_talpha "talpha"
+#define _IFT_StructuralMaterial_StressControl_stiffmode "scstiffmode"
+#define _IFT_StructuralMaterial_StressControl_reltol "screltol"
+#define _IFT_StructuralMaterial_StressControl_abstol "scabstol"
+#define _IFT_StructuralMaterial_StressControl_maxiter "maxiter"
 //@}
 
 namespace oofem {
@@ -118,13 +122,21 @@ class OOFEM_EXPORT StructuralMaterial : public Material
 protected:
     /// Reference temperature (temperature, when material has been built into structure).
     double referenceTemperature = 0.;
+    /// stifness mode used in stress control
+    MatResponseMode SCStiffMode = TangentStiffness; // tangent
+    /// relative tolerance for stress control
+    double SCRelTol = 1.e-3;  // relative stress control tolerance
+    /// absolute stress tolerance for stress control
+    double SCAbsTol = 1.e-12;
+    /// maximum iterations for stress-control
+    int SCMaxiter = 100000;
 
 public:
     /// Voigt index map
-    static std :: array< std :: array< int, 3 >, 3 >vIindex;
+    static std::array< std::array< int, 3 >, 3 >vIindex;
 
     /// Symmetric Voigt index map
-    static std :: array< std :: array< int, 3 >, 3 >svIndex;
+    static std::array< std::array< int, 3 >, 3 >svIndex;
 
     static int giveSymVI(int ind1, int ind2) { return svIndex [ ind1 - 1 ] [ ind2 - 1 ]; }
     static int giveVI(int ind1, int ind2) { return vIindex [ ind1 - 1 ] [ ind2 - 1 ]; }
@@ -327,7 +339,7 @@ public:
      * @param s Stress/strain matrix.
      * @return Computed principal values.
      */
-    static std :: pair< FloatArrayF< 3 >, FloatMatrixF< 3, 3 > >computePrincipalValDir(const FloatMatrixF< 3, 3 > &s);
+    static std::pair< FloatArrayF< 3 >, FloatMatrixF< 3, 3 > >computePrincipalValDir(const FloatMatrixF< 3, 3 > &s);
 
     /**
      * Computes split of receiver into deviatoric and volumetric part.
@@ -336,7 +348,7 @@ public:
      * @return Volumetric part (diagonal components divided by 3).
      */
     static FloatArrayF< 6 >computeDeviator(const FloatArrayF< 6 > &s);
-    static std :: pair< FloatArrayF< 6 >, double >computeDeviatoricVolumetricSplit(const FloatArrayF< 6 > &s);
+    static std::pair< FloatArrayF< 6 >, double >computeDeviatoricVolumetricSplit(const FloatArrayF< 6 > &s);
     static FloatArrayF< 6 >computeDeviatoricVolumetricSum(const FloatArrayF< 6 > &dev, double mean);
 
     static FloatArrayF< 6 >applyDeviatoricElasticCompliance(const FloatArrayF< 6 > &stress, double EModulus, double nu);
@@ -369,6 +381,23 @@ public:
      */
     virtual FloatMatrixF< 6, 6 >give3dMaterialStiffnessMatrix(MatResponseMode mode, GaussPoint *gp, TimeStep *tStep) const
     { OOFEM_ERROR("not implemented "); }
+
+
+    /**
+     * Computes the large strain stiffness matrix for giveFirstPKStressVector of receiver in given integration point, respecting its history.
+     * The algorithm should use temporary or equilibrium  history variables stored in integration point status
+     * to compute and return required result.
+     * @param answer Contains result.
+     * @param mode Material response mode.
+     * @param gp Integration point.
+     * @param tStep Time step (most models are able to respond only when tStep is current time step).
+     */
+    virtual void giveStiffnessMatrix_dPdF(FloatMatrix &answer,
+                                          MatResponseMode mode,
+                                          GaussPoint *gp,
+                                          TimeStep *tStep);
+
+
 
 
     virtual FloatMatrixF< 9, 9 >give3dMaterialStiffnessMatrix_dPdF(MatResponseMode mode,
@@ -478,7 +507,7 @@ public:
      */
     //@{
     virtual FloatMatrixF< 3, 3 >givePlaneStressStiffMtrx(MatResponseMode mmode, GaussPoint *gp, TimeStep *tStep) const;
-    virtual FloatMatrixF< 4, 4 >givePlaneStressStiffMtrx_dPdF(MatResponseMode mmode, GaussPoint *gp, TimeStep *tStep) const;
+    virtual FloatMatrixF< 4, 4 >givePlaneStressStiffnessMatrix_dPdF(MatResponseMode mmode, GaussPoint *gp, TimeStep *tStep) const;
 
     virtual void givePlaneStressStiffMtrx_dCde(FloatMatrix &answer,
                                                MatResponseMode mmode, GaussPoint *gp,
@@ -504,7 +533,7 @@ public:
      */
     //@{
     virtual FloatMatrixF< 4, 4 >givePlaneStrainStiffMtrx(MatResponseMode mmode, GaussPoint *gp, TimeStep *tStep) const;
-    virtual FloatMatrixF< 5, 5 >givePlaneStrainStiffMtrx_dPdF(MatResponseMode mmode, GaussPoint *gp, TimeStep *tStep) const;
+    virtual FloatMatrixF< 5, 5 >givePlaneStrainStiffnessMatrix_dPdF(MatResponseMode mmode, GaussPoint *gp, TimeStep *tStep) const;
 
     virtual void givePlaneStrainStiffMtrx_dCde(FloatMatrix &answer,
                                                MatResponseMode mmode, GaussPoint *gp,
@@ -525,7 +554,7 @@ public:
      */
     //@{
     virtual FloatMatrixF< 1, 1 >give1dStressStiffMtrx(MatResponseMode mmode, GaussPoint *gp, TimeStep *tStep) const;
-    virtual FloatMatrixF< 1, 1 >give1dStressStiffMtrx_dPdF(MatResponseMode mmode, GaussPoint *gp, TimeStep *tStep) const;
+    virtual FloatMatrixF< 1, 1 >give1dStressStiffnessMatrix_dPdF(MatResponseMode mmode, GaussPoint *gp, TimeStep *tStep) const;
 
     virtual void give1dStressStiffMtrx_dCde(FloatMatrix &answer,
                                             MatResponseMode mmode, GaussPoint *gp,

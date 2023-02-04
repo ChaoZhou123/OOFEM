@@ -378,6 +378,7 @@ TransportMaterial :: computeTangent1D(MatResponseMode mode, GaussPoint *gp, Time
 }
 
 
+
 int
 TransportMaterial :: giveIPValue(FloatArray &answer, GaussPoint *gp, InternalStateType type, TimeStep *tStep)
 // IST_Humidity must be overriden!
@@ -410,7 +411,16 @@ TransportMaterial :: giveIPValue(FloatArray &answer, GaussPoint *gp, InternalSta
     } else if ( type == IST_Maturity ) {
         answer = FloatArray{ ms->giveMaturity() };
         return 1;
+    } else if ( type == IST_InternalSource ) {
+        if(hasInternalSource()){
+            computeInternalSourceVector(answer, gp, tStep, VM_Total);
+        } else {
+           answer.resize(1);
+           answer.zero();
+        }
+        return 1;
     }
+    
     return Material :: giveIPValue(answer, gp, type, tStep);
 }
 } // end namespace oofem
