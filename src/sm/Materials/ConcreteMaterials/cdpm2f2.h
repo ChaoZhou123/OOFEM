@@ -71,7 +71,6 @@ class CDPM2F2Status : public ConcreteDPM2Status
 public:
     /// Constructor
     CDPM2F2Status(GaussPoint *gp);
-
 };
 
 
@@ -92,31 +91,31 @@ protected:
 
     //Chao: These are the varialbes that you had in cdpm2f
 
-    double lf=0.;
-    double vf0=0.;
-    double vf=0.;
-    double vfm=0.;
-    double z=0.;
-    double df=0.;
-    double ef=0.;
-    double tau0=0.;
-    double beta=0.;
-    double f=0.;
-    double eta=0.;
-    double g=0.;
-    double s0=0.;
-    double omega=0.;
-    double k=0.;
-    double lamda=0.;
-    double deltaStar=0.;
-    double c=0.;
-    double deltaCu=0.;
-    double sm=0.;
-    double alpha=0. ;
-    double alphamin=0.;
-    int ctype=0;
-    int drelation=1;
-    int fdtype=0;
+    double lf = 0.;
+    double vf0 = 0.;
+    double vf = 0.;
+    double vfm = 0.;
+    double z = 0.;
+    double df = 0.;
+    double ef = 0.;
+    double tau0 = 0.;
+    double beta = 0.;
+    double f = 0.;
+    double eta = 0.;
+    double g = 0.;
+    double s0 = 0.;
+    double omega = 0.;
+    double k = 0.;
+    double lamda = 0.;
+    double deltaStar = 0.;
+    double c = 0.;
+    double deltaCu = 0.;
+    double sm = 0.;
+    double alpha = 0.;
+    double alphamin = 0.;
+    int ctype = 0;
+    int drelation = 1;
+    int fdtype = 0;
 public:
     /// Constructor
     CDPM2F2(int n, Domain *d);
@@ -128,7 +127,6 @@ public:
 
     /// Compute damage parameter in tension.
     virtual double computeDamageParamTension(double equivStrain, double kappaOne, double kappaTwo, double le, double omegaOld, double rateFactor) const;
-
 };
 } //end namespace oofem
 #endif
