@@ -289,8 +289,8 @@ namespace oofem {
                     }
 
                     residual = ( 1. - omega ) * this->eM * equivStrain - fibre - concrete;
-                    // printf("omega = %e, residual = %e, fibre = %e, concrete = %e\n",omega, residual, fibre, concrete);
-
+                    //printf("omega = %e, residual = %e, fibre = %e, concrete = %e\n",omega, residual, fibre, concrete);
+                    //printf("e_cu = %e\n",eCu);
                     if ( residual < 0 ) {
                         omega = ( omega + a ) / 2.;
                     } else if ( residual > 0 ) {
@@ -299,6 +299,8 @@ namespace oofem {
                         omega    = ( c + a ) / 2.;
                     }
                 } while ( fabs(residual / this->ft) > 0.000001 );
+
+
             } else if ( ctype == 1 )   {
                 do {
                     nite++;
@@ -357,7 +359,7 @@ namespace oofem {
                         concrete = ( 1 - vf ) * ftTemp * exp(-delta / wfMod);
                         dconcrte = -ftTemp * Ddelta * kappaTwo / wfMod * ( 1 - vf ) * exp(-delta / wfMod);
                     }
-                    residual        = ( 1. - omega ) * this->eM * equivStrain - fibre - concrete;
+                    residual        = ( 1. - omega ) * this->eM * equivStrain - fibre-concrete;
                     dResidualDOmega = -this->eM * equivStrain - dfibre - dconcrte;
                     omega -= residual / dResidualDOmega;
                     //printf("omega=%e,residual=%e\n,",omega,residual);
