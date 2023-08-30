@@ -113,9 +113,10 @@ protected:
     double sm = 0.;
     double alpha = 0.;
     double alphamin = 0.;
+    double ap = 0.;
     int ctype = 0;
-    int drelation = 1;
-    int fdtype = 0;
+    int drelation = 2;
+    int fdtype = 2;
 public:
     /// Constructor
     CDPM2F2(int n, Domain *d);
