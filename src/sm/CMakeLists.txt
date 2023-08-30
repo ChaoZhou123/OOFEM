@@ -97,6 +97,7 @@ set (sm_element
     Elements/LatticeElements/latticebeam3d.C
     Elements/LatticeElements/latticebeam3dboundary.C
     Elements/LatticeElements/latticeframe3d.C
+    Elements/LatticeElements/latticeframe3dnl.C
     Elements/tet21ghostsolid.C
     Elements/quad1platesubsoil.C 
     Elements/quad2platesubsoil.C
@@ -299,9 +300,9 @@ set (sm_material
     Materials/LatticeMaterials/latticeplasticitydamageviscoelastic.C
     Materials/LatticeMaterials/latticeframeelastic.C
     Materials/LatticeMaterials/latticeframesteelplastic.C
+    Materials/LatticeMaterials/latticeframeconcreteplastic.C
     Materials/1D/isoasymm1d.C
 )
-
 if (USE_MFRONT)
     list (APPEND sm_material Materials/mfrontusermaterial.C)
 endif ()
@@ -431,7 +432,7 @@ set (sm
     ${sm_obsolete}
     ${sm_new}
     ${sm_boundary_conditions}
-    ${sm_quasicontinuum} 
+    ${sm_quasicontinuum}
     )
 
 if (USE_PARALLEL)
