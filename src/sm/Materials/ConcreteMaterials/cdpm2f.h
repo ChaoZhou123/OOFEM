@@ -10,7 +10,7 @@
  *
  *             OOFEM : Object Oriented Finite Element Code
  *
- *               Copyright (C) 1993 - 2013   Borek Patzak
+ *               Copyright (C) 1993 - 2023   Borek Patzak
  *
  *
  *
@@ -44,17 +44,19 @@
 #include "gausspoint.h"
 #include "mathfem.h"
 
-///@name Input fields for CDPM2F
-//@{
+//Chao: Here we need to add the input parameters which are in your cdpm2f
+
 #define _IFT_CDPM2F_Name "cdpm2f"
 #define _IFT_CDPM2F_Lf "lf"
-#define _IFT_CDPM2F_Vf "vf"
+#define _IFT_CDPM2F_Vf0 "vf0"
 #define _IFT_CDPM2F_Df "df"
 #define _IFT_CDPM2F_Tau0 "tau0"
 #define _IFT_CDPM2F_Beta "beta"
 #define _IFT_CDPM2F_f "f"
 #define _IFT_CDPM2F_Ef "ef"
 #define _IFT_CDPM2F_Sm "sm"
+#define _IFT_CDPM2F_Alpha "alpha"
+#define _IFT_CDPM2F_sigmoidRatio "t"
 //@}
 
 namespace oofem {
@@ -65,65 +67,19 @@ namespace oofem {
 class CDPM2FStatus : public ConcreteDPM2Status
 {
 public:
-
-
-protected:
-  
-  FloatArrayF< 6 >stressConcrete;
-  FloatArrayF< 6 >tempStressConcrete;
-  FloatArrayF< 3 >Num;
-  FloatArrayF< 3 >tempNum;
-
-  FloatArrayF< 6 >stressFibres;
-  FloatArrayF< 6 >tempStressFibres;
-  FloatArrayF< 3 >principalCrackingStrain;
-  FloatArrayF< 3 >tempPrincipalCrackingStrain;
-  FloatArrayF< 6 >principalStressFibres;
-  FloatArrayF< 6 >tempPrincipalStressFibres;
-
-public:
     /// Constructor
     CDPM2FStatus(GaussPoint *gp);
-    void initTempStatus() override;
-    void updateYourself(TimeStep *tstep) override;
-    void printOutputAt(FILE *file, TimeStep *tStep) const override;
-    const char *giveClassName() const override { return "CDPM2FStatus"; }
-    const FloatArrayF< 6 > &giveStressConcrete() const { return stressConcrete; }
-    const FloatArrayF< 6 > &giveTempStressConcrete() const { return tempStressConcrete; }
-    const FloatArrayF< 6 > &giveStressFibres() const { return stressFibres; }
-    const FloatArrayF< 6 > &giveTempStressFibres() const { return tempStressFibres; }
-    const FloatArrayF< 3 > &giveTempNum() const { return tempNum; }
-    const FloatArrayF< 3 > &giveNum() const { return Num; }
-    const FloatArrayF< 3 > &givePrincipalCrackingStrain() const { return principalCrackingStrain; }
-    const FloatArrayF< 3 > &giveTempPrincipalCrackingStrain() const { return tempPrincipalCrackingStrain; }
-    const FloatArrayF< 6 > &givePrincipalStressFibres() const { return principalStressFibres; }
-    const FloatArrayF< 6 > &giveTempPrincipalStressFibres() const { return tempPrincipalStressFibres; }
-
-    void letTempStressFibresBe(const FloatArrayF< 6 > &v)
-    { tempStressFibres = v; }
-
-    void letTempStressConcreteBe(const FloatArrayF< 6 > &v)
-    { tempStressConcrete = v; }
-
-    void letTempPrincipalCrackingStrainBe(const FloatArrayF< 3 > &v)
-    { tempPrincipalCrackingStrain = v; }
-
-    void letTempPrincipalStressFibresBe(const FloatArrayF< 6 > &v)
-    { tempPrincipalStressFibres = v; }
-
-    void letTempNumBe(const FloatArrayF< 3 > &v)
-    { tempNum = v; }
-}; 
+};
 
 
 //   ********************************
-//   *** CLASS CONCRETEDPM2   ***
+//   *** CLASS CDPM2F   ***
 //   ********************************
 
 /**
- * This class is an extension of concretedpm2. The fibre bridging stress according to the model proposed by Lin and Li (1997) is added to the standard CDPM2 model.
+ * Info about the model
  *
- * @author Peter Grassl, Chao Zhou
+ * @author Chao Zhou, Peter Grassl
  */
 class CDPM2F : public ConcreteDPM2
 {
@@ -131,27 +87,38 @@ public:
 
 protected:
 
-  double lf=0.;
-  double vf=0.;
-  double df=0.;
-  double ef=0.;
-  double tau0=0.;
-  double beta=0.;
-  double f=0.;
-  double eta=0.;
-  double g=0.;
-  double s0=0.;
-  double omega=0.;
-  double k=0.;
-  double lamda=0.;
-  double delta_star=0.;
-  double c=0.;
-  double delta_cu=0.;
-  double sm=0.;
- 
-    
+    //Chao: These are the varialbes that you had in cdpm2f
 
- public:
+    double lf = 0.;
+    double vf0 = 0.;
+    double vf = 0.;
+    double vfm = 0.;
+    double z = 0.;
+    double df = 0.;
+    double ef = 0.;
+    double em = 0.;
+    double tau0 = 0.;
+    double beta = 0.;
+    double f = 0.;
+    double eta = 0.;
+    double g = 0.;
+    double s0 = 0.;
+    double omega = 0.;
+    double k = 0.;
+    double lambda = 0.;
+    double deltaStar = 0.;
+    double c = 0.;
+    double deltaCu = 0.;
+    double sm = 0.;
+    double alpha = 0.;
+    double alphaMin = 0.;
+    double ap = 0.;
+  double t = 0.3;
+  double deltaUl;
+  double stressCu = 0.;
+
+  
+public:
     /// Constructor
     CDPM2F(int n, Domain *d);
 
@@ -161,16 +128,17 @@ protected:
     const char *giveInputRecordName() const override { return _IFT_CDPM2F_Name; }
 
 
-    //void giveRealStressVector_1d(FloatArray &answer, GaussPoint *gp, const FloatArray &totalStrain, TimeStep *tStep) override;
+  
+  double  computeFibreStress(double delta) const;
 
-    FloatArrayF< 6 >giveRealStressVector_3d(const FloatArrayF< 6 > &strain, GaussPoint *gp, TimeStep *tStep) const override;
+  double computeCrackOpening(double epscr,const double le) const;
+  
+  double computeMatrixStress(double delta) const;
 
-    FloatMatrixF< 6, 6 >give3dMaterialStiffnessMatrix(MatResponseMode mode, GaussPoint *gp, TimeStep *tStep) const override;
-    
-    bool hasMaterialModeCapability(MaterialMode mode) const override;
-
-protected:
-    MaterialStatus *CreateStatus(GaussPoint *gp) const override;
+  double computeStressResidual(double equivStrain, double omega, double kappaOne, double kappaTwo, double le) const;
+  
+    /// Compute damage parameter in tension.
+    virtual double computeDamageParamTension(double equivStrain, double kappaOne, double kappaTwo, double le, double omegaOld, double rateFactor) const;
 };
 } //end namespace oofem
 #endif
