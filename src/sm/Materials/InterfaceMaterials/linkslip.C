@@ -188,6 +188,13 @@ LinkSlip::give3dStiffnessMatrix_Eng(MatResponseMode rMode, GaussPoint *gp, TimeS
     return diag< 3 >({ this->kNormal, this->kLateral, this->kLateral });
 }
 
+FloatMatrixF< 1, 1 >
+LinkSlip::give1dStiffnessMatrix_Eng(MatResponseMode rMode, GaussPoint *gp, TimeStep *tStep) const
+{
+    return this->kNormal;
+}
+
+ 
 LinkSlipStatus::LinkSlipStatus(GaussPoint *g) :  StructuralInterfaceMaterialStatus(g)
 {}
 
