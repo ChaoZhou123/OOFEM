@@ -89,8 +89,8 @@ namespace oofem {
         IR_GIVE_FIELD(ir, tau0, _IFT_CDPM2F_Tau0);
 
         //Default 0.015
-        this->beta = 0.015
-                     IR_GIVE_OPTIONAL_FIELD(ir, beta, _IFT_CDPM2F_Beta);
+        this->beta = 0.015;
+	IR_GIVE_OPTIONAL_FIELD(ir, beta, _IFT_CDPM2F_Beta);
 
         this->f = 0.8;
         IR_GIVE_OPTIONAL_FIELD(ir, f, _IFT_CDPM2F_f);
@@ -98,7 +98,7 @@ namespace oofem {
         //default not available.  Theroetical value very small
         IR_GIVE_FIELD(ir, sm, _IFT_CDPM2F_Sm);
 
-        this - alpha = 1;
+        this->alpha = 1.;
         IR_GIVE_OPTIONAL_FIELD(ir, alpha, _IFT_CDPM2F_Alpha);
 
 
@@ -127,19 +127,26 @@ namespace oofem {
         this->deltaStar = ( 2. * this->df ) / this->beta * this->lambda;
 
         this->c = this->beta * this->lf / ( 2. * this->df );
-
-
+       
         if ( this->c <= 6 * this->lambda + 2 ) {  //softening starts at end of debonding
-            this->deltaCu = this->lf * this->lambda / this->c;
+
+	  this->deltaCu = this->lf * this->lambda / this->c;
+
         } else { //softening starts later
-            this->deltaCu = ( 0.5 * this->lf * ( this->c - 2. ) / ( 3. * this->c ) );
+
+	  this->deltaCu = ( 0.5 * this->lf * ( this->c - 2. ) / ( 3. * this->c ) );
+
         }
 
         //softening starts at end of debonding
         if ( this->c <= 6 * this->lambda + 2 ) {
-            this->stressCu = this->s0 * ( 1. + 2. * this->lambda ) * pow( ( 2. * lambda / this->c - 1. ), 2.);
+
+	  this->stressCu = this->s0 * ( 1. + 2. * this->lambda ) * pow( ( 2. * lambda / this->c - 1. ), 2.);
+
         } else {
-            this->stressCu = this->s0 * 4. * pow( ( c + 1. ), 3.) / 27. / pow(c, 2.);
+
+	  this->stressCu = this->s0 * 4. * pow( ( c + 1. ), 3.) / 27. / pow(c, 2.);
+
         }
 
         //Calculate alphamin to check alpha input.
@@ -152,7 +159,7 @@ namespace oofem {
 
         this->alphaMin = exp( ( this->vfm - this->vf0 ) / this->vf0);
 
-        this->deltaUl = this->lf / 2;
+        this->deltaUl = this->lf / 2.;
 
         if ( alpha < alphaMin ) {
             OOFEM_ERROR("alpha should be larger than alphamin %e\n", alphaMin);
