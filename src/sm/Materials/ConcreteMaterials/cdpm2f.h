@@ -44,8 +44,6 @@
 #include "gausspoint.h"
 #include "mathfem.h"
 
-//Chao: Here we need to add the input parameters which are in your cdpm2f
-
 #define _IFT_CDPM2F_Name "cdpm2f"
 #define _IFT_CDPM2F_Lf "lf"
 #define _IFT_CDPM2F_Vf0 "vf0"
@@ -56,13 +54,13 @@
 #define _IFT_CDPM2F_Ef "ef"
 #define _IFT_CDPM2F_Sm "sm"
 #define _IFT_CDPM2F_Alpha "alpha"
-#define _IFT_CDPM2F_sigmoidRatio "t"
+#define _IFT_CDPM2F_xi "xi"
 //@}
 
 namespace oofem {
 /**
  * This class implements the material status associated to CDPM2F.
- * @author Peter Grassl, Dimitrios Xenos
+ * @author Chao Zhou, Peter Grassl
  */
 class CDPM2FStatus : public ConcreteDPM2Status
 {
@@ -77,8 +75,9 @@ public:
 //   ********************************
 
 /**
- * Info about the model
- *
+ * This class implements an extension of CDPM2 for fibre reinforced materials which exhibit strain hardening.
+ * The fibre equation used are described in "A damage-plasticity approach for modelling the failure of engineered cementitious composites" by Chao Zhou and Peter Grassl
+ * The tensile response is closely related to the paper "Crack bridging in fibre reinforced cementitious composites with slip-hardening interfaces." by Lin and Li.
  * @author Chao Zhou, Peter Grassl
  */
 class CDPM2F : public ConcreteDPM2
@@ -86,8 +85,6 @@ class CDPM2F : public ConcreteDPM2
 public:
 
 protected:
-
-    //Chao: These are the varialbes that you had in cdpm2f
 
     double lf = 0.;
     double vf0 = 0.;
@@ -113,11 +110,11 @@ protected:
     double alpha = 0.;
     double alphaMin = 0.;
     double ap = 0.;
-  double t = 0.3;
-  double deltaUl;
-  double stressCu = 0.;
+    double xi = 0.;
+    double deltaUl = 0.;
+    double stressCu = 0.;
 
-  
+
 public:
     /// Constructor
     CDPM2F(int n, Domain *d);
@@ -128,15 +125,14 @@ public:
     const char *giveInputRecordName() const override { return _IFT_CDPM2F_Name; }
 
 
-  
-  double  computeFibreStress(double delta) const;
+    double  computeFibreStress(double delta) const;
 
-  double computeCrackOpening(double epscr,const double le) const;
-  
-  double computeMatrixStress(double delta) const;
+    double computeCrackOpening(double epscr, const double le) const;
 
-  double computeStressResidual(double equivStrain, double omega, double kappaOne, double kappaTwo, double le) const;
-  
+    double computeMatrixStress(double delta) const;
+
+    double computeStressResidual(double equivStrain, double omega, double kappaOne, double kappaTwo, double le) const;
+
     /// Compute damage parameter in tension.
     virtual double computeDamageParamTension(double equivStrain, double kappaOne, double kappaTwo, double le, double omegaOld, double rateFactor) const;
 };
