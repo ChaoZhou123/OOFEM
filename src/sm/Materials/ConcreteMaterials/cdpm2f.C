@@ -104,7 +104,7 @@ namespace oofem {
 
         IR_GIVE_FIELD(ir, this->em, _IFT_IsotropicLinearElasticMaterial_e);
 
-        this->xi = 0.3;
+        this->xi = 0.1;
         IR_GIVE_OPTIONAL_FIELD(ir, this->xi, _IFT_CDPM2F_xi);
 
         //Precalculate parameters
@@ -207,11 +207,11 @@ namespace oofem {
 
     double CDPM2F::computeCrackOpening(double crackingStrain, const double le) const
     {
-        double delta = 0., gammaR0 = 0.;
+      double delta = 0., gammaR0 = 0., stressRatio = 0., dStressRatioDDelta = 0.;
         int nite = 0;
 
 
-        double deltaOne = 0., deltaTwo = 0., residualOne = 0., residualTwo = 0., residual = 0.;
+        double  residual = 0., dResidualDDelta = 0.;
 
 
         double ftTemp = this->ft * ( 1. - this->yieldTolDamage );
@@ -226,48 +226,43 @@ namespace oofem {
         double deltaCuUnloading = deltaCu * ( gammaCu * le - sm ) / ( le - sm );
 
         if ( crackingStrain >= 0 && crackingStrain <= eCu ) { //pre-preak
-            delta = deltaCu * ( 1. - exp(-crackingStrain / ( this->xi ) ) ) / ( 1. - exp( -( eCu ) / ( this->xi ) ) ); //sigmoid delta relation
+            delta = deltaCu * ( 1. - exp(-crackingStrain / ( this->xi ) ) ) / ( 1. - exp( -eCu  / ( this->xi ) ) ); //sigmoid delta relation
         } else if ( crackingStrain > eCu && crackingStrain <= eUl ) {
             //initial guess of delta
             delta = this->deltaCu;
 
             //Two cases: 1) Unloading occurs in the element. 2) No unloading occurs.
-            if ( le > gammaCu * sm ) {
+            if ( le > sm/gammaCu ) {
                 //Case 1: Unloading in element occurs.
 
-                //Apply bisection method to solve third order equation. We could also use Newton method which would be a bit faster, but I do not think it matters much.
+                //Apply Newton method to solve third order equation.
 
-                deltaOne = this->deltaCu;
-                residualOne =  1. / le * ( deltaOne + ( le / this->sm - 1 ) * deltaCuUnloading / this->stressCu * this->s0 *
-                                           ( 1. + this->beta * deltaOne / this->df ) * pow(1. - 2. * deltaOne / lf, 2.) ) - crackingStrain;
-                deltaTwo = 2 * this->deltaUl; //Choose large to deal with large steps.
-                residualTwo = 1. / le * ( deltaTwo + ( le / this->sm - 1 ) * deltaCuUnloading / this->stressCu * this->s0 *
-                                          ( 1. + this->beta * deltaTwo / this->df ) * pow(1. - 2. * deltaTwo / lf, 2.) ) - crackingStrain;
-                if ( ( residualOne < 0 && residualTwo < 0 ) || ( residualOne > 0 && residualTwo > 0 ) ) {
-                    OOFEM_ERROR("Bisection method will not work because solution is not bracketed. The two residuals are %e and %e\n", residualOne, residualTwo);
-                }
+		delta = this->deltaCu;
 
                 do{
                     if ( nite == 1000 ) {
-                        OOFEM_ERROR("Bisection method to compute crack opening in CDPM2F did not converge.")
+                        OOFEM_ERROR("Method to compute crack opening in CDPM2F did not converge.")
                     }
-                    delta = ( deltaOne + deltaTwo ) / 2.;
-                    residual = 1. / le * ( delta + ( le / this->sm - 1 ) * deltaCuUnloading / this->stressCu * this->s0 *
-                                           ( 1. + this->beta * delta / this->lf ) * pow(1. - 2. * delta / lf, 2.) ) - crackingStrain;
-                    if ( ( residual < 0 && residualOne < 0 ) || ( residual > 0 && residualOne > 0 ) ) {
-                        deltaOne = delta;
-                        residualOne = residual;
-                    } else if ( ( residual < 0 && residualTwo < 0 ) || ( residual > 0 && residualTwo > 0 ) ) {
-                        deltaTwo = delta;
-                        residualTwo = residual;
-                    }
+
+		    
+		    stressRatio = this->s0 * ( 1. + this->beta * delta / this->lf ) * pow(1. - 2. * delta / this->lf, 2.)/this->stressCu;
+
+		    dStressRatioDDelta = this->s0*this->beta/this->lf * pow(1. - 2. * delta / this->lf, 2.)/this->stressCu -
+		      this->s0 * ( 1. + this->beta * delta / this->lf )*2.*(1. - 2. * delta/this->lf)/this->stressCu*2./this->lf;
+
+		    
+                    residual = 1. / le * ( delta + ( le / this->sm - 1. ) * deltaCuUnloading * stressRatio ) - crackingStrain;
+
+		    dResidualDDelta = 1./le + 1./le*(le / this->sm - 1.)*deltaCuUnloading*dStressRatioDDelta;
+
+		    delta -=residual/dResidualDDelta;
+
                     nite++;
-                }while ( fabs(residual) / eUl > 1.e-6 );
+                }while ( fabs(residual) / eCu > 1.e-6 );
             } else {
                 //Element so small so that no unloading occurs in element.
                 //Are we underestimating fracture energy with this approach. If yes, it must be negligible because so much energy is dissipated in pre-preak.
-
-                gammaR0 = gammaCu * le / sm;
+	      gammaR0 = gammaCu * le / sm;
 
                 delta = 1. / ( 4. * ( gammaR0 - 1 ) ) *
                         sqrt(pow(lf, 2.) * pow(gammaR0, 2.) - 4. * lf * deltaCu * gammaR0 -
@@ -275,8 +270,13 @@ namespace oofem {
                              16 * ( 1. - gammaR0 ) * crackingStrain * le * deltaCu) - 2. * deltaCu + lf * gammaR0;
             }
         }
+	else{
+	  delta = le*crackingStrain;
+	}
 
         return delta;
+	
+	
     }
 
 
@@ -289,8 +289,8 @@ namespace oofem {
 
         double fibreStress = computeFibreStress(delta);
 
-        double matrixStress = computeMatrixStress(delta);
-
+	double matrixStress = computeMatrixStress(delta);
+		
         double residual = ( 1. - omega ) * this->eM * equivStrain - fibreStress - matrixStress;
 
         return residual;
@@ -300,10 +300,6 @@ namespace oofem {
     double
     CDPM2F::computeDamageParamTension(double equivStrain, double kappaOne, double kappaTwo, double le, double omegaOld, double rateFactor) const
     {
-        //Check first if element length is small enough. This needs to be done here because le is caluclated from the principal directions at the onset of cracking.
-        if ( le > ( 7. * c - 2. ) * this->sm / ( 3. * c - 6. ) ) {
-            OOFEM_ERROR("element size should be less than %e. Your element size is le = %e\n", ( 7. * c - 2. ) * this->sm / ( 3. * c - 6. ), le);
-        }
 
 
         double omega = 0.;
@@ -312,8 +308,15 @@ namespace oofem {
 
         // So that damage does not turn out to be negative if function is entered for equivstrains smaller than e0.
         double ftTemp = this->ft * ( 1. - yieldTolDamage );
+        double gammaCu = ( 1. - this->alpha ) * ftTemp / this->eM * this->sm / ( deltaCu * ( 1. - this->alphaMin ) ) + ( ( this->alpha - this->alphaMin ) / ( 1. - this->alphaMin ) );
 
+        //Check first if element length is small enough. This needs to be done here because le is caluclated from the principal directions at the onset of cracking.
+	if ( le > ( 7. * c - 2. ) * this->sm /( gammaCu*( 3. * c - 6. ) ) ) {
+	  OOFEM_ERROR("element size should be less than %e. Your element size is le = %e\n", ( 7. * c - 2. ) * this->sm / (gammaCu*( 3. * c - 6. )), le);
+	  }
 
+	
+	
         /*The main idea of the function is to determine the damage variable with the bisection method, which provides an equivalent 1D stress which is equal to the sum of fibre and concrete stress. The input to the function is the cracking strain. Both fibre and concrete stress are computed from the crack opening. Therefore, we need to calculate the crack opening from the cracking strain.
          * This is carried out in three steps. For a given damage variable:
          * 1) The crack opening is determined from the cracking strain. There are two regions which are separated, namely distributed and localised cracking.
