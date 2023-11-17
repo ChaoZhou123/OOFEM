@@ -162,8 +162,7 @@ namespace oofem {
         this->deltaUl = this->lf / 2.;
 
         if ( alpha < alphaMin ) {
-            OOFEM_ERROR("alpha should be larger than alphamin %e\n", alphaMin);
-            printf("alphamin= %e\n", alphaMin);
+	  OOFEM_ERROR("Wrong input in CDPM2F. alpha=%e should be larger than alphamin %e\n", alpha, alphaMin);
         }
     }
 
@@ -197,6 +196,7 @@ namespace oofem {
         double ftTemp = this->ft * ( 1. - this->yieldTolDamage );
 
         if ( this->softeningType == 2 ) {
+	  //Chao, should this be vf or vf0 here? 
             matrixStress = ( 1 - this->vf ) * ftTemp * exp(-delta / this->wf);
         } else {
             OOFEM_ERROR("concrete softening must be exponential (stype = 2)");
@@ -226,13 +226,13 @@ namespace oofem {
         double deltaCuUnloading = deltaCu * ( gammaCu * le - sm ) / ( le - sm );
 
         if ( crackingStrain >= 0 && crackingStrain <= eCu ) { //pre-preak
-            delta = deltaCu * ( 1. - exp(-crackingStrain / ( this->xi ) ) ) / ( 1. - exp( -eCu  / ( this->xi ) ) ); //sigmoid delta relation
+            delta = deltaCu * ( 1. - exp(-crackingStrain / ( this->xi*eCu ) ) ) / ( 1. - exp( -eCu  / ( this->xi*eCu ) ) ); //sigmoid delta relation
         } else if ( crackingStrain > eCu && crackingStrain <= eUl ) {
             //initial guess of delta
             delta = this->deltaCu;
 
             //Two cases: 1) Unloading occurs in the element. 2) No unloading occurs.
-            if ( le > sm/gammaCu ) {
+            if ( le > sm ) {
                 //Case 1: Unloading in element occurs.
 
                 //Apply Newton method to solve third order equation.
@@ -311,8 +311,8 @@ namespace oofem {
         double gammaCu = ( 1. - this->alpha ) * ftTemp / this->eM * this->sm / ( deltaCu * ( 1. - this->alphaMin ) ) + ( ( this->alpha - this->alphaMin ) / ( 1. - this->alphaMin ) );
 
         //Check first if element length is small enough. This needs to be done here because le is caluclated from the principal directions at the onset of cracking.
-	if ( le > ( 7. * c - 2. ) * this->sm /( gammaCu*( 3. * c - 6. ) ) ) {
-	  OOFEM_ERROR("element size should be less than %e. Your element size is le = %e\n", ( 7. * c - 2. ) * this->sm / (gammaCu*( 3. * c - 6. )), le);
+	if ( le > ( 7. * c - 2. ) * this->sm /( gammaCu*( 3. * c - 6. ) ) ) {	  
+	  OOFEM_WARNING("element size should be less than %e. Your element size is le = %e\n Local snapback could occur.\n", ( 7. * c - 2. ) * this->sm / (gammaCu*( 3. * c - 6. )), le);
 	  }
 
 	
