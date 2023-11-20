@@ -104,7 +104,7 @@ namespace oofem {
 
         IR_GIVE_FIELD(ir, this->em, _IFT_IsotropicLinearElasticMaterial_e);
 
-        this->xi = 0.1;
+        this->xi = 0.3;
         IR_GIVE_OPTIONAL_FIELD(ir, this->xi, _IFT_CDPM2F_xi);
 
         //Precalculate parameters
@@ -226,7 +226,6 @@ namespace oofem {
         double deltaCuUnloading = deltaCu * ( gammaCu * le - sm ) / ( le - sm );
 
         if ( crackingStrain >= 0 && crackingStrain <= eCu ) { //pre-preak
-	  printf("xi = %e\n", xi);
             delta = deltaCu * ( 1. - exp(-crackingStrain / ( this->xi*eCu ) ) ) / ( 1. - exp( -eCu  / ( this->xi*eCu ) ) ); //sigmoid delta relation
         } else if ( crackingStrain > eCu && crackingStrain <= eUl ) {
             //initial guess of delta
