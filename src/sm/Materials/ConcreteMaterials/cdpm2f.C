@@ -226,6 +226,7 @@ namespace oofem {
         double deltaCuUnloading = deltaCu * ( gammaCu * le - sm ) / ( le - sm );
 
         if ( crackingStrain >= 0 && crackingStrain <= eCu ) { //pre-preak
+	  printf("xi = %e\n", xi);
             delta = deltaCu * ( 1. - exp(-crackingStrain / ( this->xi*eCu ) ) ) / ( 1. - exp( -eCu  / ( this->xi*eCu ) ) ); //sigmoid delta relation
         } else if ( crackingStrain > eCu && crackingStrain <= eUl ) {
             //initial guess of delta
@@ -245,10 +246,10 @@ namespace oofem {
                     }
 
 		    
-		    stressRatio = this->s0 * ( 1. + this->beta * delta / this->lf ) * pow(1. - 2. * delta / this->lf, 2.)/this->stressCu;
+		    stressRatio = this->s0 * ( 1. + this->beta * delta / this->df ) * pow(1. - 2. * delta / this->lf, 2.)/this->stressCu;
 
-		    dStressRatioDDelta = this->s0*this->beta/this->lf * pow(1. - 2. * delta / this->lf, 2.)/this->stressCu -
-		      this->s0 * ( 1. + this->beta * delta / this->lf )*2.*(1. - 2. * delta/this->lf)/this->stressCu*2./this->lf;
+		    dStressRatioDDelta = this->s0*this->beta/this->df * pow(1. - 2. * delta / this->lf, 2.)/this->stressCu -
+		      this->s0 * ( 1. + this->beta * delta / this->df )*2.*(1. - 2. * delta/this->lf)/this->stressCu*2./this->lf;
 
 		    
                     residual = 1. / le * ( delta + ( le / this->sm - 1. ) * deltaCuUnloading * stressRatio ) - crackingStrain;
