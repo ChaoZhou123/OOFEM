@@ -280,10 +280,10 @@ namespace oofem {
     }
 
 
-    double CDPM2F::computeStressResidual(double equivStrain, double omega, double kappaOne, double kappaTwo, double le) const
+    double CDPM2F::computeStressResidual(double equivStrain, double damage, double kappaOne, double kappaTwo, double le) const
     {
         //calculate cracking strain
-        double crackingStrain  = kappaOne + omega * kappaTwo;
+        double crackingStrain  = kappaOne + damage * kappaTwo;
 
         double delta = computeCrackOpening(crackingStrain, le);
 
@@ -291,18 +291,17 @@ namespace oofem {
 
 	double matrixStress = computeMatrixStress(delta);
 		
-        double residual = ( 1. - omega ) * this->eM * equivStrain - fibreStress - matrixStress;
+        double residual = ( 1. - damage ) * this->eM * equivStrain - fibreStress - matrixStress;
 
         return residual;
     }
 
 
     double
-    CDPM2F::computeDamageParamTension(double equivStrain, double kappaOne, double kappaTwo, double le, double omegaOld, double rateFactor) const
+    CDPM2F::computeDamageParamTension(double equivStrain, double kappaOne, double kappaTwo, double le, double damageOld, double rateFactor) const
     {
 
 
-        double omega = 0.;
         double fibre    = 0.;
         double concrete = 0.;
 
@@ -325,53 +324,49 @@ namespace oofem {
          * 4) Check stress balance. If out of balance go to 1) with a different damage variable.
          */
 
+          double dDamage, residual, residualMid, damageMid, damage =0.;
+          double damageOne = 0.;
+          double damageTwo = 1.;
+
 
         int nite = 0;
         if ( equivStrain > e0 * ( 1. - yieldTolDamage ) ) { // Check if damage should start
             nite     = 0;
 
-            double residual = 0.;
+            residual = computeStressResidual(equivStrain, damageOne, kappaOne, kappaTwo, le);           
+	    residualMid = computeStressResidual(equivStrain, damageTwo, kappaOne, kappaTwo, le);
 
-            double omegaOne = 0.;
-            double boundOne = computeStressResidual(equivStrain, omegaOne, kappaOne, kappaTwo, le);
-
-            double omegaTwo = 1.;
-            double boundTwo = computeStressResidual(equivStrain, omegaTwo, kappaOne, kappaTwo, le);
-
-            if ( ( boundOne < 0 && boundTwo < 0 ) || ( boundOne > 0 && boundTwo > 0 ) ) {
-                OOFEM_ERROR("Bisection method will not work because solution is not bracketed. The two residuals are %e and %e\n", boundOne, boundTwo);
+            if ( ( residual*residualMid > 0) ) {
+	      OOFEM_ERROR("Bisection method will not work because solution is not bracketed. The two residuals are %e and %e\n", residual, residualMid);	       
             }
 
+	    damage = residual < 0.0 ? (dDamage = damageTwo-damageOne, damageOne) : (dDamage = damageOne-damageTwo, damageTwo);
+
+	    
             do {
                 nite++;
-                if ( nite == 1000 ) {
-                    OOFEM_ERROR("In computeDamageTension: bisection method not converged");
+                if ( nite == 100 ) {
+		  OOFEM_ERROR("In computeDamageTension: bisection method not converged. residual = %e, residualMid= %e, damage=%e", residual, residualMid, damage);
                 }
 
-                omega = ( omegaOne + omegaTwo ) / 2.;
-                residual = computeStressResidual(equivStrain, omega, kappaOne, kappaTwo, le);
+		damageMid = damage+(dDamage*=0.5);
+		residualMid = computeStressResidual(equivStrain, damageMid, kappaOne, kappaTwo, le);
 
-                if ( ( residual < 0 && boundOne < 0 ) || ( residual > 0 && boundOne > 0 ) ) {
-                    omegaOne = omega;
-                    boundOne = residual;
-                } else if ( ( residual < 0 && boundTwo < 0 ) || ( residual > 0 && boundTwo > 0 ) ) {
-                    omegaTwo = omega;
-                    boundTwo = residual;
-                }
-            }while ( fabs(residual / this->ft) > 1.e-6 );
-        }   else {
-            omega = 0.;
+		if(residualMid <=0.0) damage = damageMid;
+
+			
+	    } while(fabs(dDamage) > 1.e-10 && residualMid != 0.0);
+ 
+	}
+	
+        if ( damage > 1. ) {
+            damage = 1.;
         }
 
-
-        if ( omega > 1. ) {
-            omega = 1.;
+        if ( damage < 0. || damage < damageOld ) {
+            damage = damageOld;
         }
 
-        if ( omega < 0. || omega < omegaOld ) {
-            omega = omegaOld;
-        }
-
-        return omega;
+        return damage;
     }
 }
