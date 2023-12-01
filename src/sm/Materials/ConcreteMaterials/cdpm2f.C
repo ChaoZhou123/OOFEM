@@ -155,8 +155,8 @@ namespace oofem {
 
         this->z = ftTemp / ( 0.5 * g * tau0 * lf / df * ( ( 1. + beta * deltaCu / df ) * ( pow( ( 1. - 2. * deltaCu / lf ), 2. ) ) ) );
 
-        this->vfm = ( -( this->em - z ) + sqrt(pow( ( this->em - z ), 2 ) + 4. * ( this->ef - this->em ) * this->z * this->em) ) / ( 2. * ( this->ef - this->em ) );
-
+        this->vfm= ( -( this->em + this->em * this->z ) + sqrt(pow(( this-> em + this->em * z ),2) + 4.* ( this->ef - this->em ) * this->em * this->z ) ) / ( 2. * ( this->ef - this->em ) );
+	
         this->alphaMin = exp( ( this->vfm - this->vf0 ) / this->vf0);
 
         this->deltaUl = this->lf / 2.;
