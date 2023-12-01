@@ -85,12 +85,12 @@ namespace oofem {
         //Default not available
         IR_GIVE_FIELD(ir, ef, _IFT_CDPM2F_Ef);
 
-        //Default 1 MPa
+        //Default 1 MPa. Must be entered because of the units.
         IR_GIVE_FIELD(ir, tau0, _IFT_CDPM2F_Tau0);
 
         //Default 0.015
         this->beta = 0.015;
-	IR_GIVE_OPTIONAL_FIELD(ir, beta, _IFT_CDPM2F_Beta);
+        IR_GIVE_OPTIONAL_FIELD(ir, beta, _IFT_CDPM2F_Beta);
 
         this->f = 0.8;
         IR_GIVE_OPTIONAL_FIELD(ir, f, _IFT_CDPM2F_f);
@@ -102,9 +102,7 @@ namespace oofem {
         IR_GIVE_OPTIONAL_FIELD(ir, alpha, _IFT_CDPM2F_Alpha);
 
 
-        IR_GIVE_FIELD(ir, this->em, _IFT_IsotropicLinearElasticMaterial_e);
-
-        this->xi = 0.3;
+        this->xi = 10.;
         IR_GIVE_OPTIONAL_FIELD(ir, this->xi, _IFT_CDPM2F_xi);
 
         //Precalculate parameters
@@ -112,7 +110,7 @@ namespace oofem {
         //Introduce reduction in vf due to dispersion
         this->vf = ( 1. + log(this->alpha) ) * this->vf0;
 
-        this->eta = this->ef * this->vf / ( this->em * ( 1. - this->vf ) );
+        this->eta = this->ef * this->vf / ( this->eM * ( 1. - this->vf ) );
 
         this->g = 2. * ( 1. + exp(M_PI * this->f / 2.) ) / ( 4. + pow(this->f, 2.) );
 
@@ -127,42 +125,34 @@ namespace oofem {
         this->deltaStar = ( 2. * this->df ) / this->beta * this->lambda;
 
         this->c = this->beta * this->lf / ( 2. * this->df );
-       
+
         if ( this->c <= 6 * this->lambda + 2 ) {  //softening starts at end of debonding
-
-	  this->deltaCu = this->lf * this->lambda / this->c;
-
+            this->deltaCu = this->lf * this->lambda / this->c;
         } else { //softening starts later
-
-	  this->deltaCu = ( 0.5 * this->lf * ( this->c - 2. ) / ( 3. * this->c ) );
-
+            this->deltaCu = ( 0.5 * this->lf * ( this->c - 2. ) / ( 3. * this->c ) );
         }
 
         //softening starts at end of debonding
         if ( this->c <= 6 * this->lambda + 2 ) {
-
-	  this->stressCu = this->s0 * ( 1. + 2. * this->lambda ) * pow( ( 2. * lambda / this->c - 1. ), 2.);
-
+            this->stressCu = this->s0 * ( 1. + 2. * this->lambda ) * pow( ( 2. * lambda / this->c - 1. ), 2. );
         } else {
-
-	  this->stressCu = this->s0 * 4. * pow( ( c + 1. ), 3.) / 27. / pow(c, 2.);
-
+            this->stressCu = this->s0 * 4. * pow( ( c + 1. ), 3. ) / 27. / pow(c, 2.);
         }
 
         //Calculate alphamin to check alpha input.
 
         double ftTemp = this->ft * ( 1. - this->yieldTolDamage );
 
-        this->z = ftTemp / ( 0.5 * g * tau0 * lf / df * ( ( 1. + beta * deltaCu / df ) * ( pow( ( 1. - 2. * deltaCu / lf ), 2. ) ) ) );
+        this->z = ftTemp / ( 0.5 * g * tau0 * lf / df * ( ( 1. + beta * deltaCu / df ) * ( pow( ( 1. - 2. * deltaCu / lf ), 2.) ) ) );
 
-        this->vfm= ( -( this->em + this->em * this->z ) + sqrt(pow(( this-> em + this->em * z ),2) + 4.* ( this->ef - this->em ) * this->em * this->z ) ) / ( 2. * ( this->ef - this->em ) );
-	
-        this->alphaMin = exp( ( this->vfm - this->vf0 ) / this->vf0);
+        this->vfm = ( -( this->eM + this->eM * this->z ) + sqrt(pow( ( this->eM + this->eM * z ), 2 ) + 4. * ( this->ef - this->eM ) * this->eM * this->z) ) / ( 2. * ( this->ef - this->eM ) );
+
+        this->alphaMin = exp( ( this->vfm - this->vf0 ) / this->vf0 );
 
         this->deltaUl = this->lf / 2.;
 
         if ( alpha < alphaMin ) {
-	  OOFEM_ERROR("Wrong input in CDPM2F. alpha=%e should be larger than alphamin %e\n", alpha, alphaMin);
+            OOFEM_ERROR("Wrong input in CDPM2F. alpha=%e should be larger than alphamin %e\n", alpha, alphaMin);
         }
     }
 
@@ -173,9 +163,9 @@ namespace oofem {
 
 
         if ( delta >= 0 && delta <= this->deltaStar ) {
-            fibreStress = ( 2. / this->k * ( ( 1. - acosh(1. + this->lambda * delta / this->deltaStar) / this->k ) * sqrt(pow( ( 1. + this->lambda * delta / this->deltaStar ), 2. ) - 1.) + ( this->lambda * delta ) / ( this->k * this->deltaStar ) ) + this->ap * delta / this->deltaStar ) * this->s0;
-        } else if ( delta > this->deltaStar && delta <= this->deltaUl )   {
-            fibreStress = ( 1. + beta * delta / df ) * ( pow( ( 1. - 2. * delta / lf ), 2. ) ) * s0;
+            fibreStress = ( 2. / this->k * ( ( 1. - acosh(1. + this->lambda * delta / this->deltaStar) / this->k ) * sqrt(pow( ( 1. + this->lambda * delta / this->deltaStar ), 2.) - 1.) + ( this->lambda * delta ) / ( this->k * this->deltaStar ) ) + this->ap * delta / this->deltaStar ) * this->s0;
+        } else if ( delta > this->deltaStar && delta <= this->deltaUl ) {
+            fibreStress = ( 1. + beta * delta / df ) * ( pow( ( 1. - 2. * delta / lf ), 2.) ) * s0;
 
             //Check that fibre stress is not negative. Should not be the case
             if ( fibreStress <= 0. ) {
@@ -196,7 +186,7 @@ namespace oofem {
         double ftTemp = this->ft * ( 1. - this->yieldTolDamage );
 
         if ( this->softeningType == 2 ) {
-	  //Chao, should this be vf or vf0 here? 
+            //Chao, should this be vf or vf0 here?
             matrixStress = ( 1 - this->vf ) * ftTemp * exp(-delta / this->wf);
         } else {
             OOFEM_ERROR("concrete softening must be exponential (stype = 2)");
@@ -207,11 +197,11 @@ namespace oofem {
 
     double CDPM2F::computeCrackOpening(double crackingStrain, const double le) const
     {
-      double delta = 0., gammaR0 = 0., stressRatio = 0., dStressRatioDDelta = 0.;
+        double delta = 0., gammaR0 = 0., stressRatio = 0., dStressRatioDDelta = 0.;
         int nite = 0;
 
 
-        double  residual = 0., dResidualDDelta = 0.;
+        double residual = 0., dResidualDDelta = 0.;
 
 
         double ftTemp = this->ft * ( 1. - this->yieldTolDamage );
@@ -226,7 +216,7 @@ namespace oofem {
         double deltaCuUnloading = deltaCu * ( gammaCu * le - sm ) / ( le - sm );
 
         if ( crackingStrain >= 0 && crackingStrain <= eCu ) { //pre-preak
-            delta = deltaCu * ( 1. - exp(-crackingStrain / ( this->xi*eCu ) ) ) / ( 1. - exp( -eCu  / ( this->xi*eCu ) ) ); //sigmoid delta relation
+            delta = deltaCu * ( 1. - exp( -crackingStrain / ( this->xi * eCu ) ) ) / ( 1. - exp(-eCu  / ( this->xi * eCu ) ) ); //sigmoid delta relation
         } else if ( crackingStrain > eCu && crackingStrain <= eUl ) {
             //initial guess of delta
             delta = this->deltaCu;
@@ -237,46 +227,43 @@ namespace oofem {
 
                 //Apply Newton method to solve third order equation.
 
-		delta = this->deltaCu;
+                delta = this->deltaCu;
 
                 do{
                     if ( nite == 1000 ) {
                         OOFEM_ERROR("Method to compute crack opening in CDPM2F did not converge.")
                     }
 
-		    
-		    stressRatio = this->s0 * ( 1. + this->beta * delta / this->df ) * pow(1. - 2. * delta / this->lf, 2.)/this->stressCu;
 
-		    dStressRatioDDelta = this->s0*this->beta/this->df * pow(1. - 2. * delta / this->lf, 2.)/this->stressCu -
-		      this->s0 * ( 1. + this->beta * delta / this->df )*2.*(1. - 2. * delta/this->lf)/this->stressCu*2./this->lf;
+                    stressRatio = this->s0 * ( 1. + this->beta * delta / this->df ) * pow(1. - 2. * delta / this->lf, 2.) / this->stressCu;
 
-		    
+                    dStressRatioDDelta = this->s0 * this->beta / this->df * pow(1. - 2. * delta / this->lf, 2.) / this->stressCu -
+                                         this->s0 * ( 1. + this->beta * delta / this->df ) * 2. * ( 1. - 2. * delta / this->lf ) / this->stressCu * 2. / this->lf;
+
+
                     residual = 1. / le * ( delta + ( le / this->sm - 1. ) * deltaCuUnloading * stressRatio ) - crackingStrain;
 
-		    dResidualDDelta = 1./le + 1./le*(le / this->sm - 1.)*deltaCuUnloading*dStressRatioDDelta;
+                    dResidualDDelta = 1. / le + 1. / le * ( le / this->sm - 1. ) * deltaCuUnloading * dStressRatioDDelta;
 
-		    delta -=residual/dResidualDDelta;
+                    delta -= residual / dResidualDDelta;
 
                     nite++;
                 }while ( fabs(residual) / eCu > 1.e-6 );
             } else {
                 //Element so small so that no unloading occurs in element.
                 //Are we underestimating fracture energy with this approach. If yes, it must be negligible because so much energy is dissipated in pre-preak.
-	      gammaR0 = gammaCu * le / sm;
+                gammaR0 = gammaCu * le / sm;
 
                 delta = 1. / ( 4. * ( gammaR0 - 1 ) ) *
                         sqrt(pow(lf, 2.) * pow(gammaR0, 2.) - 4. * lf * deltaCu * gammaR0 -
                              8. * crackingStrain * le * lf * gammaR0 + 4 * pow(deltaCu, 2.) -
                              16 * ( 1. - gammaR0 ) * crackingStrain * le * deltaCu) - 2. * deltaCu + lf * gammaR0;
             }
+        } else   {
+            delta = le * crackingStrain;
         }
-	else{
-	  delta = le*crackingStrain;
-	}
 
         return delta;
-	
-	
     }
 
 
@@ -289,8 +276,8 @@ namespace oofem {
 
         double fibreStress = computeFibreStress(delta);
 
-	double matrixStress = computeMatrixStress(delta);
-		
+        double matrixStress = computeMatrixStress(delta);
+
         double residual = ( 1. - damage ) * this->eM * equivStrain - fibreStress - matrixStress;
 
         return residual;
@@ -300,22 +287,17 @@ namespace oofem {
     double
     CDPM2F::computeDamageParamTension(double equivStrain, double kappaOne, double kappaTwo, double le, double damageOld, double rateFactor) const
     {
-
-
-        double fibre    = 0.;
-        double concrete = 0.;
-
         // So that damage does not turn out to be negative if function is entered for equivstrains smaller than e0.
         double ftTemp = this->ft * ( 1. - yieldTolDamage );
         double gammaCu = ( 1. - this->alpha ) * ftTemp / this->eM * this->sm / ( deltaCu * ( 1. - this->alphaMin ) ) + ( ( this->alpha - this->alphaMin ) / ( 1. - this->alphaMin ) );
 
         //Check first if element length is small enough. This needs to be done here because le is caluclated from the principal directions at the onset of cracking.
-	if ( le > ( 7. * c - 2. ) * this->sm /( gammaCu*( 3. * c - 6. ) ) ) {	  
-	  OOFEM_WARNING("element size should be less than %e. Your element size is le = %e\n Local snapback could occur.\n", ( 7. * c - 2. ) * this->sm / (gammaCu*( 3. * c - 6. )), le);
-	  }
+        if ( le > ( 7. * c - 2. ) * this->sm / ( gammaCu * ( 3. * c - 6. ) ) ) {
+            OOFEM_WARNING("element size should be less than %e. Your element size is le = %e\n Local snapback could occur.\n", ( 7. * c - 2. ) * this->sm / ( gammaCu * ( 3. * c - 6. ) ), le);
+        }
 
-	
-	
+
+
         /*The main idea of the function is to determine the damage variable with the bisection method, which provides an equivalent 1D stress which is equal to the sum of fibre and concrete stress. The input to the function is the cracking strain. Both fibre and concrete stress are computed from the crack opening. Therefore, we need to calculate the crack opening from the cracking strain.
          * This is carried out in three steps. For a given damage variable:
          * 1) The crack opening is determined from the cracking strain. There are two regions which are separated, namely distributed and localised cracking.
@@ -324,41 +306,40 @@ namespace oofem {
          * 4) Check stress balance. If out of balance go to 1) with a different damage variable.
          */
 
-          double dDamage, residual, residualMid, damageMid, damage =0.;
-          double damageOne = 0.;
-          double damageTwo = 1.;
+        double dDamage, residual, residualMid, damageMid, damage = 0.;
+        double damageOne = 0.;
+        double damageTwo = 1.;
 
 
         int nite = 0;
         if ( equivStrain > e0 * ( 1. - yieldTolDamage ) ) { // Check if damage should start
             nite     = 0;
 
-            residual = computeStressResidual(equivStrain, damageOne, kappaOne, kappaTwo, le);           
-	    residualMid = computeStressResidual(equivStrain, damageTwo, kappaOne, kappaTwo, le);
+            residual = computeStressResidual(equivStrain, damageOne, kappaOne, kappaTwo, le);
+            residualMid = computeStressResidual(equivStrain, damageTwo, kappaOne, kappaTwo, le);
 
-            if ( ( residual*residualMid > 0) ) {
-	      OOFEM_ERROR("Bisection method will not work because solution is not bracketed. The two residuals are %e and %e\n", residual, residualMid);	       
+            if ( ( residual * residualMid > 0 ) ) {
+                OOFEM_ERROR("Bisection method will not work because solution is not bracketed. The two residuals are %e and %e\n", residual, residualMid);
             }
 
-	    damage = residual < 0.0 ? (dDamage = damageTwo-damageOne, damageOne) : (dDamage = damageOne-damageTwo, damageTwo);
+            damage = residual < 0.0 ? ( dDamage = damageTwo - damageOne, damageOne ) : ( dDamage = damageOne - damageTwo, damageTwo );
 
-	    
+
             do {
                 nite++;
                 if ( nite == 100 ) {
-		  OOFEM_ERROR("In computeDamageTension: bisection method not converged. residual = %e, residualMid= %e, damage=%e", residual, residualMid, damage);
+                    OOFEM_ERROR("In computeDamageTension: bisection method not converged. residual = %e, residualMid= %e, damage=%e", residual, residualMid, damage);
                 }
 
-		damageMid = damage+(dDamage*=0.5);
-		residualMid = computeStressResidual(equivStrain, damageMid, kappaOne, kappaTwo, le);
+                damageMid = damage + ( dDamage *= 0.5 );
+                residualMid = computeStressResidual(equivStrain, damageMid, kappaOne, kappaTwo, le);
 
-		if(residualMid <=0.0) damage = damageMid;
+                if ( residualMid <= 0.0 ) {
+                    damage = damageMid;
+                }
+            } while ( fabs(dDamage) > 1.e-10 && residualMid != 0.0 );
+        }
 
-			
-	    } while(fabs(dDamage) > 1.e-10 && residualMid != 0.0);
- 
-	}
-	
         if ( damage > 1. ) {
             damage = 1.;
         }

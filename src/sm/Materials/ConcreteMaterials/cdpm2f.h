@@ -85,17 +85,22 @@ class CDPM2F : public ConcreteDPM2
 public:
 
 protected:
-
+    /// length of fibre
     double lf = 0.;
+    /// base volume fraction of fibres
     double vf0 = 0.;
     double vf = 0.;
     double vfm = 0.;
     double z = 0.;
+    /// diameter of fibre
     double df = 0.;
+    /// Young's modulus of fibre
     double ef = 0.;
-    double em = 0.;
+    /// initial bond strength of interface between fibre and matrix
     double tau0 = 0.;
+    /// hardening parameter of fibre
     double beta = 0.;
+    ///snubbing factor
     double f = 0.;
     double eta = 0.;
     double g = 0.;
@@ -106,10 +111,13 @@ protected:
     double deltaStar = 0.;
     double c = 0.;
     double deltaCu = 0.;
+    ///saturated crack spacing
     double sm = 0.;
+    ///parameter related to dispersion (smaller or equal to 1)
     double alpha = 0.;
     double alphaMin = 0.;
     double ap = 0.;
+    ///parameter affecting the hardening response.
     double xi = 0.;
     double deltaUl = 0.;
     double stressCu = 0.;
@@ -134,7 +142,7 @@ public:
     double computeStressResidual(double equivStrain, double omega, double kappaOne, double kappaTwo, double le) const;
 
     /// Compute damage parameter in tension.
-    virtual double computeDamageParamTension(double equivStrain, double kappaOne, double kappaTwo, double le, double omegaOld, double rateFactor) const;
+    virtual double computeDamageParamTension(double equivStrain, double kappaOne, double kappaTwo, double le, double omegaOld, double rateFactor) const override;
 };
 } //end namespace oofem
 #endif
