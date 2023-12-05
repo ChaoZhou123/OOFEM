@@ -17,7 +17,7 @@ ltrspace 1 nodes 4 1 2 3 4 mat 1 crossSect 1
 #
 SimpleCS 1
 #
-cdpm2f2 1 d 0. talpha 0. stype 2 E 15.9e9 n 0.2 ft 1.12e6 fc 15.5e6 wf 2.22e-7 ef 60.e9 lf 12.0e-3 vf0 0.02 df 40.e-6 beta 0.015 f 0.5 tau0 0.9e6 sm 0.005 hp 0.7 alpha 0.8
+cdpm2f2 1 d 0. talpha 0. stype 2 E 15.9e9 n 0.2 ft 1.12e6 fc 15.5e6 wf 2.22e-7 ef 60.e9 lf 12.0e-3 vf0 0.02 df 40.e-6 beta 0.015 f 0.5 tau0 0.9e6 sm 0.005 hp 0.7 alpha 0.8 ctype 0 drelation 2 fdtype 1 alpha 0.8
 #cdpm2f2 1 d 0. talpha 0. stype 2 E 15.9e9 n 0.2 ft 1.12e6 fc 15.5e6 wf 2.22e-7 ef 60.e9 lf 12.0e-3 vf0 0.02 df 40.e-6 beta 0.015 f 0.5 tau0 0.9e6 sm 0.005 hp 0.7 ctype 0 drelation 2 fdtype 1 alpha 0.8
 #cdpm2f2 1 d 0. talpha 0. stype 2 E 20.e9 n 0.2 ft 2.0e6 fc 20.e6 wf 25.e-6 ef 48.e9 lf 12.7e-3 vf0 0.015 df 38.e-6 beta 0.0125 f 0.8 tau0 0.7e6 sm 0.01 hp 0.7 cType 1
 #

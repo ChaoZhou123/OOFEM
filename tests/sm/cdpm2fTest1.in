@@ -27,10 +27,10 @@ NodalLoad 4 loadTimeFunction 1 Components 3 0. 0. 0.0
 ConstantFunction 1 f(t) 1. 
 #%BEGIN_CHECK%
 #ELEMENT tStep 1 number 1 gp 1 keyword 4 component 2 value 4.e-4 tolerance 1.e-12
-#ELEMENT tStep 1 number 1 gp 1 keyword 1 component 2 value 2.00225822e6 tolerance 1.e-2
+#ELEMENT tStep 1 number 1 gp 1 keyword 1 component 2 value 1.98416229e6 tolerance 1.e-2
 #ELEMENT tStep 5 number 1 gp 1 keyword 4 component 2 value 2.e-4 tolerance 1.e-12
 #ELEMENT tStep 5 number 1 gp 1 keyword 1 component 2 value 3.62132685e6 tolerance 1.e-2
 #ELEMENT tStep 10 number 1 gp 1 keyword 4 component 2 value 1.22400000e-01 tolerance 1.e-12
-#ELEMENT tStep 10 number 1 gp 1 keyword 1 component 2 value 3.14335103e4 tolerance 1.e-2
+#ELEMENT tStep 10 number 1 gp 1 keyword 1 component 2 value 0.00000000e+00 tolerance 1.e-2
 
 #%END_CHECK%

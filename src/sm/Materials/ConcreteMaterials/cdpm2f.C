@@ -222,7 +222,7 @@ namespace oofem {
             delta = this->deltaCu;
 
             //Two cases: 1) Unloading occurs in the element. 2) No unloading occurs.
-            if ( le > sm ) {
+            if ( le > sm/gammaCu ) {
                 //Case 1: Unloading in element occurs.
 
                 //Apply Newton method to solve third order equation.
@@ -252,15 +252,16 @@ namespace oofem {
             } else {
                 //Element so small so that no unloading occurs in element.
                 //Are we underestimating fracture energy with this approach. If yes, it must be negligible because so much energy is dissipated in pre-preak.
-                gammaR0 = gammaCu * le / sm;
+	      printf("Small element\n");
+	      
+	      gammaR0 = gammaCu * le / sm;
 
                 delta = 1. / ( 4. * ( gammaR0 - 1 ) ) *
-                        sqrt(pow(lf, 2.) * pow(gammaR0, 2.) - 4. * lf * deltaCu * gammaR0 -
-                             8. * crackingStrain * le * lf * gammaR0 + 4 * pow(deltaCu, 2.) -
-                             16 * ( 1. - gammaR0 ) * crackingStrain * le * deltaCu) - 2. * deltaCu + lf * gammaR0;
+		  ( lf * gammaR0 - 2. * deltaCu - sqrt(pow(lf, 2.) * pow(gammaR0, 2.) - 4. deltaCu * ( lf * gammaR0 - deltaCu) +
+		   8. * ( 1. - gammaR0 ) * crackingStrain * le * (lf - 2. * deltaCu) ));
             }
         } else   {
-            delta = le * crackingStrain;
+	  delta = le * crackingStrain;
         }
 
         return delta;
