@@ -252,13 +252,12 @@ namespace oofem {
             } else {
                 //Element so small so that no unloading occurs in element.
                 //Are we underestimating fracture energy with this approach. If yes, it must be negligible because so much energy is dissipated in pre-preak.
-	      printf("Small element\n");
 	      
 	      gammaR0 = gammaCu * le / sm;
 
-                delta = 1. / ( 4. * ( gammaR0 - 1 ) ) *
-		  ( lf * gammaR0 - 2. * deltaCu - sqrt(pow(lf, 2.) * pow(gammaR0, 2.) - 4. deltaCu * ( lf * gammaR0 - deltaCu) +
-		   8. * ( 1. - gammaR0 ) * crackingStrain * le * (lf - 2. * deltaCu) ));
+                delta = 1. / ( 4. * ( gammaR0 - 1. ) ) *
+		  ( lf * gammaR0 - 2. * deltaCu - sqrt(pow(lf, 2.) * pow(gammaR0, 2.) - 4. * deltaCu * ( lf * gammaR0 - deltaCu ) +
+		   8. * ( 1. - gammaR0 ) * crackingStrain * le * ( lf - 2. * deltaCu ) ) );
             }
         } else   {
 	  delta = le * crackingStrain;
