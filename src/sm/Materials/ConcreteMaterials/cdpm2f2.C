@@ -140,37 +140,19 @@ namespace oofem {
 
         double ftTemp = this->ft * ( 1. - yieldTolDamage );
 
-        this->z = ftTemp / ( 0.5 * g * tau0 * lf / df * ( ( 1. + beta * deltaCu / df ) * ( pow( ( 1. - 2. * deltaCu / lf ), 2. ) ) ) );
-
-        // this->vfm = ( sqrt(pow(em, 2) * pow( ( 1 + z ), 2 ) + 4. * ( ef - em ) * em * z) - em * ( 1 + z ) ) / ( 2 * ( ef - em ) );
-
-        this->vfm = ( -( em - z ) + sqrt(pow( ( em - z ), 2 ) + 4. * ( ef - em ) * z * em) ) / ( 2. * ( ef - em ) );
-
+	this->z = ftTemp*27.*beta*c / (4.*g*tau0*pow((c+1.),3.)); 
+	
+	this->vfm= ( -( this->em + this->em * this->z ) + sqrt(pow(( this-> em + this->em * z ),2.) + 4.* ( this->ef - this->em ) * this->em * this->z ) ) / ( 2. * ( this->ef - this->em ) );  
+	 
         this->alphamin = exp( ( vfm - vf0 ) / vf0);
 
-        this->ap = ( 1. + beta * deltaStar / df ) * pow( ( 1. - deltaStar * 2 / lf ), 2 ) - 2 * lamda / ( pow(k, 2) );
+        this->ap = ( 1. + beta * deltaStar / df ) * pow( ( 1. - deltaStar * 2. / lf ), 2. ) - 2. * lamda / ( pow(k, 2.) );
 
         if ( alpha < alphamin ) {
             OOFEM_ERROR("alpha should be larger than alphamin %e\n", alphamin);
             printf("alphamin= %e\n", alphamin);
         }
-
-
-
-
-
-
-
-
-
-
-
-
-        //another parameter implemented.///////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-        // Todo: We need to find a way to check hardeningModulus Hp based on the fibre input and adjust it so that it is large enough to keep damage positive. Initial inclination is critical. We should then check here the value of Hp and adjust if necessary.
+	
     }
 
 
